@@ -5,12 +5,15 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   define: {
-    // Đảm bảo process.env.API_KEY hoạt động ổn định trên cả dev và production
+    // Đảm bảo process.env hoạt động ổn định trên cả dev và production
     'process.env.API_KEY': JSON.stringify(process.env.API_KEY || ''),
-    // Polyfill process.env để tránh lỗi "process is not defined" trong một số thư viện
+    'process.env.VITE_SUPABASE_URL': JSON.stringify(process.env.VITE_SUPABASE_URL || ''),
+    'process.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(process.env.VITE_SUPABASE_ANON_KEY || ''),
     'process.env': {
       NODE_ENV: JSON.stringify(process.env.NODE_ENV || 'production'),
-      API_KEY: JSON.stringify(process.env.API_KEY || '')
+      API_KEY: JSON.stringify(process.env.API_KEY || ''),
+      VITE_SUPABASE_URL: JSON.stringify(process.env.VITE_SUPABASE_URL || ''),
+      VITE_SUPABASE_ANON_KEY: JSON.stringify(process.env.VITE_SUPABASE_ANON_KEY || '')
     }
   },
   build: {
