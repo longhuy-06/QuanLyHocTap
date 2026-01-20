@@ -3,9 +3,8 @@ import { GoogleGenAI, Chat, Modality, LiveServerMessage, Type } from "@google/ge
 
 const getAI = () => {
   const apiKey = process.env.API_KEY;
-  // Xử lý chuỗi 'undefined' mà Netlify/Vite thỉnh thoảng truyền vào khi biến chưa set
+  // Kiểm tra kỹ các trường hợp API Key bị truyền sai chuỗi từ Netlify/Vite
   if (!apiKey || apiKey === 'undefined' || apiKey === '' || apiKey === 'null') {
-    console.warn("Gemini API Key is missing. Please check your environment variables in Netlify/Local.");
     return null;
   }
   return new GoogleGenAI({ apiKey });
@@ -30,6 +29,7 @@ export const createChatSession = (options: { enableThinking?: boolean, enableSea
   try {
     const ai = getAI();
     if (!ai) return null;
+    
     const model = (options.enableThinking || options.enableSearch) ? 'gemini-3-pro-preview' : 'gemini-3-flash-preview';
     
     const config: any = {
@@ -47,18 +47,20 @@ export const createChatSession = (options: { enableThinking?: boolean, enableSea
 };
 
 export const sendMessageToGemini = async (
-  chat: Chat, 
+  chat: Chat | null, 
   message: string, 
   attachment?: { data: string; mimeType: string }
 ): Promise<{ text: string; grounding?: any }> => {
-  if (!chat) return { text: "API Key chưa được cấu hình đúng trên Netlify (Site Settings -> Env Vars). Vui lòng kiểm tra lại!" };
+  if (!chat) {
+    return { text: "⚠️ LỖI: API Key chưa được cấu hình. Bạn hãy vào Netlify -> Site Settings -> Environment Variables và thêm 'API_KEY' với mã Gemini của mình, sau đó Redeploy lại nhé!" };
+  }
   
   try {
     let response;
     if (attachment) {
       response = await chat.sendMessage({
         message: [
-          { text: message || "Phân tích hình ảnh." },
+          { text: message || "Phân tích hình ảnh này." },
           { inlineData: { mimeType: attachment.mimeType, data: attachment.data } }
         ]
       });
@@ -71,11 +73,12 @@ export const sendMessageToGemini = async (
         grounding: response.candidates?.[0]?.groundingMetadata?.groundingChunks
     };
   } catch (error: any) {
+    console.error("Gemini API Error:", error);
     const msg = error.message || "";
-    if (msg.includes('API_KEY_INVALID') || msg.includes('403')) {
-        return { text: "API Key không hợp lệ hoặc không có quyền truy cập. Hãy kiểm tra lại cấu hình biến môi trường trên Netlify." };
+    if (msg.includes('API_KEY_INVALID') || msg.includes('403') || msg.includes('invalid') || msg.includes('expired')) {
+        return { text: "❌ API KEY KHÔNG HỢP LỆ: Netlify đã nhận Key nhưng Google từ chối. Hãy kiểm tra lại mã API Key trong AI Studio (ai.google.dev) xem có copy thừa khoảng trắng không nhé!" };
     }
-    return { text: "Lỗi kết nối AI. Thử lại sau!" };
+    return { text: `⚠️ Lỗi kết nối AI: ${msg || "Không xác định"}. Thử lại sau giây lát!` };
   }
 };
 
@@ -100,7 +103,7 @@ export const transcribeAudio = async (base64Data: string, mimeType: string): Pro
     if (!ai) return "";
     const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
-        contents: { parts: [{ inlineData: { mimeType, data: base64Data } }, { text: "Chuyển thành văn bản." }] }
+        contents: { parts: [{ inlineData: { mimeType, data: base64Data } }, { text: "Chuyển âm thanh này thành văn bản." }] }
     });
     return response.text || "";
 };
@@ -110,7 +113,7 @@ export const generateFlashcardsFromText = async (text: string): Promise<{ front:
   if (!ai) return [];
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
-    contents: `Tạo flashcards JSON: ${text}`,
+    contents: `Tạo flashcards JSON từ nội dung này: ${text}`,
     config: {
       responseMimeType: "application/json",
       responseSchema: {
@@ -140,7 +143,7 @@ export const connectLiveSession = async (callbacks: any) => {
         config: {
             responseModalities: [Modality.AUDIO],
             speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } } },
-            systemInstruction: "Bạn là Huy Long.",
+            systemInstruction: "Bạn là Huy Long, gia sư live.",
         },
     });
 };

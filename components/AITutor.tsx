@@ -145,6 +145,7 @@ export const AITutor: React.FC = () => {
     }
     const textToSend = overrideText || input;
     if ((!textToSend.trim() && !attachedFile) || isLoading) return;
+
     const userMsg: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
@@ -156,29 +157,42 @@ export const AITutor: React.FC = () => {
     const currentFile = attachedFile;
     setAttachedFile(null);
     setIsLoading(true);
+
     try {
-        if (chatSessionRef.current) {
-            const fileToSend = currentFile ? { data: currentFile.data, mimeType: currentFile.mimeType } : undefined;
-            const result = await sendMessageToGemini(chatSessionRef.current, userMsg.text, fileToSend);
-            let finalText = result.text;
-            if (result.grounding) {
-                const links = result.grounding.map((chunk: any) => chunk.web?.uri).filter(Boolean);
-                if (links.length > 0) {
-                    finalText += "\n\nNguồn tham khảo:\n" + links.map((link: string) => `- ${link}`).join('\n');
-                }
+        // Luôn cố gắng gửi, sendMessageToGemini sẽ tự xử lý nếu session bị null
+        const fileToSend = currentFile ? { data: currentFile.data, mimeType: currentFile.mimeType } : undefined;
+        const result = await sendMessageToGemini(chatSessionRef.current, userMsg.text, fileToSend);
+        
+        let finalText = result.text;
+        if (result.grounding) {
+            const links = result.grounding.map((chunk: any) => chunk.web?.uri).filter(Boolean);
+            if (links.length > 0) {
+                finalText += "\n\nNguồn tham khảo:\n" + Array.from(new Set(links)).map((link: any) => `- ${link}`).join('\n');
             }
-            const aiMsgId = (Date.now() + 1).toString();
-            const aiMsg: ChatMessage = {
-                id: aiMsgId,
-                role: 'model',
-                text: finalText,
-                timestamp: new Date().toISOString()
-            };
-            addChatMessage(aiMsg);
+        }
+        
+        const aiMsgId = (Date.now() + 1).toString();
+        const aiMsg: ChatMessage = {
+            id: aiMsgId,
+            role: 'model',
+            text: finalText,
+            timestamp: new Date().toISOString(),
+            isError: finalText.includes('LỖI') || finalText.includes('Key')
+        };
+        addChatMessage(aiMsg);
+        
+        if (!aiMsg.isError) {
             handleTTS(finalText, aiMsgId);
         }
-    } catch (err) {
-        console.error("Send error", err);
+    } catch (err: any) {
+        console.error("Critical Send Error", err);
+        addChatMessage({
+            id: Date.now().toString(),
+            role: 'model',
+            text: "⚠️ Đã xảy ra lỗi hệ thống nghiêm trọng. Vui lòng kiểm tra lại cấu hình API Key trên Netlify.",
+            timestamp: new Date().toISOString(),
+            isError: true
+        });
     } finally {
         setIsLoading(false);
     }
@@ -247,7 +261,7 @@ export const AITutor: React.FC = () => {
           const processor = inputCtx.createScriptProcessor(4096, 1, 1);
           inputProcessorRef.current = processor;
           const sessionPromise = connectLiveSession({
-              onOpen: () => console.log("Live Open"),
+              onOpen: () => console.log("Live Connected"),
               onMessage: async (msg: LiveServerMessage) => {
                   const base64Audio = msg.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
                   if (base64Audio) {
@@ -267,7 +281,10 @@ export const AITutor: React.FC = () => {
                       setTimeout(() => setLiveVolume(0), audioBuffer.duration * 1000);
                   }
               },
-              onError: (e) => setIsLiveConnected(false),
+              onError: (e: any) => {
+                  console.error("Live Error", e);
+                  setIsLiveConnected(false);
+              },
               onClose: () => setIsLiveConnected(false)
           });
           processor.onaudioprocess = (e) => {
@@ -282,7 +299,9 @@ export const AITutor: React.FC = () => {
           source.connect(processor);
           processor.connect(inputCtx.destination);
       } catch (err) {
+          console.error("Failed to start live", err);
           setIsLiveConnected(false);
+          alert("Lỗi khởi động Live. Hãy kiểm tra API Key!");
       }
   };
 
@@ -340,18 +359,18 @@ export const AITutor: React.FC = () => {
                             <div className={`flex max-w-[85%] ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'} items-end gap-2`}>
                                 <div className="shrink-0 mb-1">
                                     {msg.role === 'model' ? (
-                                        <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-md relative">
-                                            <span className="material-symbols-outlined text-[20px] font-bold">menu_book</span>
+                                        <div className={`h-9 w-9 rounded-xl flex items-center justify-center text-white shadow-md relative ${msg.isError ? 'bg-red-500' : 'bg-gradient-to-tr from-indigo-500 to-purple-600'}`}>
+                                            <span className="material-symbols-outlined text-[20px] font-bold">{msg.isError ? 'error' : 'menu_book'}</span>
                                         </div>
                                     ) : (
                                         <div className="h-9 w-9 rounded-xl bg-gray-200 bg-cover bg-center border-2 border-white dark:border-gray-800 shadow-sm" style={{backgroundImage: `url('${user?.avatar_url || "https://picsum.photos/200"}')`}}></div>
                                     )}
                                 </div>
                                 <div className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-                                    <div className={`px-4 py-3 rounded-2xl text-[15px] shadow-sm whitespace-pre-wrap ${msg.role === 'user' ? 'bg-primary text-white rounded-tr-sm' : 'bg-white dark:bg-[#1f2937] text-gray-800 dark:text-gray-100 rounded-tl-sm border border-gray-100 dark:border-gray-700'}`}>
+                                    <div className={`px-4 py-3 rounded-2xl text-[15px] shadow-sm whitespace-pre-wrap ${msg.role === 'user' ? 'bg-primary text-white rounded-tr-sm' : msg.isError ? 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-100' : 'bg-white dark:bg-[#1f2937] text-gray-800 dark:text-gray-100 rounded-tl-sm border border-gray-100 dark:border-gray-700'}`}>
                                         {msg.text}
                                     </div>
-                                    {msg.role === 'model' && isOnline && (
+                                    {msg.role === 'model' && !msg.isError && isOnline && (
                                         <button 
                                             onClick={() => handleTTS(msg.text, msg.id)} 
                                             className={`mt-1 ml-1 transition-colors p-1 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider ${playingMessageId === msg.id ? 'text-red-500' : 'text-gray-400 hover:text-primary'}`}
