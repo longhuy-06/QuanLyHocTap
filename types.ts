@@ -45,7 +45,8 @@ export interface StudyDocument {
   file_name: string;
   file_type: string;
   file_size: number;
-  file_data: string; // Base64
+  file_data: string; // URL từ storage
+  file_path?: string; // Đường dẫn vật lý trên storage để xóa
   subject_id: string;
   group_id?: string;
   upload_date: string;

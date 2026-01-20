@@ -7,7 +7,6 @@ import { useAuthStore } from '../lib/store/authStore';
 
 interface UploadModalData {
     file: File;
-    preview: string;
     title: string;
     subjectId: string;
     groupId: string;
@@ -27,13 +26,15 @@ export const StudyDocuments: React.FC = () => {
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const targetGroupIdRef = useRef<string>('');
+  const targetSubjectIdRef = useRef<string>('');
 
   const currentSubjectId = useMemo(() => {
-      if (activeTab === 'all') return subjects[0]?.id || 'chinese';
+      if (activeTab === 'all') return subjects[0]?.id || '';
       return activeTab;
   }, [activeTab, subjects]);
 
   const filteredDocs = useMemo(() => {
+    if (!documents) return [];
     return documents.filter(doc => {
       const matchesSearch = doc.title.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesTab = activeTab === 'all' || doc.subject_id === activeTab;
@@ -41,7 +42,8 @@ export const StudyDocuments: React.FC = () => {
     });
   }, [documents, searchQuery, activeTab]);
 
-  const triggerUpload = (groupId: string = '') => {
+  const triggerUpload = (subjectId: string, groupId: string = '') => {
+      targetSubjectIdRef.current = subjectId;
       targetGroupIdRef.current = groupId;
       fileInputRef.current?.click();
   };
@@ -50,42 +52,41 @@ export const StudyDocuments: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setUploadData({
-          file: file,
-          preview: reader.result as string,
-          title: file.name.split('.')[0],
-          subjectId: currentSubjectId,
-          groupId: targetGroupIdRef.current 
-      });
-    };
-    reader.readAsDataURL(file);
+    setUploadData({
+        file: file,
+        title: file.name.split('.')[0],
+        subjectId: targetSubjectIdRef.current || currentSubjectId,
+        groupId: targetGroupIdRef.current 
+    });
   };
 
-  const handleConfirmUpload = () => {
+  const handleConfirmUpload = async () => {
       if (!uploadData) return;
       
       setIsUploading(true);
-      const newDoc: StudyDocument = {
-        id: Date.now().toString(),
-        title: uploadData.title,
-        file_name: uploadData.file.name,
-        file_type: uploadData.file.type,
-        file_size: uploadData.file.size,
-        file_data: uploadData.preview,
-        subject_id: uploadData.subjectId,
-        group_id: uploadData.groupId || undefined,
-        upload_date: new Date().toLocaleDateString('vi-VN'),
-      };
-      
-      setTimeout(() => {
-          addDocument(newDoc);
-          setIsUploading(false);
+      try {
+          const newDoc: StudyDocument = {
+            id: Date.now().toString(),
+            title: uploadData.title,
+            file_name: uploadData.file.name,
+            file_type: uploadData.file.type,
+            file_size: uploadData.file.size,
+            file_data: '',
+            subject_id: uploadData.subjectId,
+            group_id: uploadData.groupId || undefined,
+            upload_date: new Date().toISOString(),
+          };
+          
+          await addDocument(newDoc, uploadData.file);
           setUploadData(null);
           if (fileInputRef.current) fileInputRef.current.value = '';
           targetGroupIdRef.current = '';
-      }, 500);
+          targetSubjectIdRef.current = '';
+      } catch (error) {
+          console.error(error);
+      } finally {
+          setIsUploading(false);
+      }
   };
 
   const handleAddGroup = () => {
@@ -98,6 +99,11 @@ export const StudyDocuments: React.FC = () => {
       addDocumentGroup(newGroup);
       setNewGroupName('');
       setIsAddingGroup(false);
+  };
+
+  const getTargetGroupName = () => {
+      if (!uploadData?.groupId) return "Chưa phân loại";
+      return documentGroups.find(g => g.id === uploadData.groupId)?.name || "Chưa phân loại";
   };
 
   return (
@@ -130,11 +136,6 @@ export const StudyDocuments: React.FC = () => {
           onChange={(e) => setSearchQuery(e.target.value)}
           className="w-full pl-12 pr-4 py-4 bg-white dark:bg-surface-dark border-none rounded-2xl shadow-soft text-sm focus:ring-2 focus:ring-primary/50 font-bold"
         />
-        {searchQuery && (
-            <button onClick={() => setSearchQuery('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300">
-                <span className="material-symbols-outlined text-[18px]">cancel</span>
-            </button>
-        )}
       </div>
 
       <div className="flex gap-2 overflow-x-auto hide-scrollbar mb-8 pb-1 animate-fade-in-up">
@@ -183,7 +184,7 @@ export const StudyDocuments: React.FC = () => {
 
                     <div className="space-y-4">
                         {subjectGroups.map(group => {
-                            const groupDocs = subjectDocs.filter(d => d.group_id === group.id);
+                            const groupDocs = subjectDocs.filter(d => String(d.group_id) === String(group.id));
                             return (
                                 <FolderView 
                                     key={group.id} 
@@ -191,13 +192,16 @@ export const StudyDocuments: React.FC = () => {
                                     docs={groupDocs} 
                                     searchQuery={searchQuery}
                                     onDeleteGroup={() => deleteDocumentGroup(group.id)}
-                                    onDeleteDoc={deleteDocument}
-                                    onAddDoc={() => triggerUpload(group.id)}
+                                    onDeleteDoc={(id) => {
+                                        const doc = documents.find(d => d.id === id);
+                                        deleteDocument(id, (doc as any).file_path);
+                                    }}
+                                    onAddDoc={() => triggerUpload(subject.id, group.id)}
                                 />
                             );
                         })}
 
-                        {subjectDocs.filter(d => !d.group_id).length > 0 && (
+                        {subjectDocs.filter(d => !d.group_id || d.group_id === "").length > 0 && (
                             <div className="space-y-3">
                                 <div className="flex items-center justify-between px-2">
                                     <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
@@ -205,17 +209,32 @@ export const StudyDocuments: React.FC = () => {
                                         Chưa phân nhóm
                                     </div>
                                     <button 
-                                        onClick={() => triggerUpload('')}
+                                        onClick={() => triggerUpload(subject.id, '')}
                                         className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-400 flex items-center justify-center hover:text-primary transition-colors"
                                     >
                                         <span className="material-symbols-outlined text-[18px]">add</span>
                                     </button>
                                 </div>
                                 <div className="grid grid-cols-1 gap-3">
-                                    {subjectDocs.filter(d => !d.group_id).map(doc => (
-                                        <DocumentCard key={doc.id} doc={doc} subject={subject} onDelete={deleteDocument} />
+                                    {subjectDocs.filter(d => !d.group_id || d.group_id === "").map(doc => (
+                                        <DocumentCard 
+                                            key={doc.id} 
+                                            doc={doc} 
+                                            subject={subject} 
+                                            onDelete={(id) => {
+                                                const doc = documents.find(d => d.id === id);
+                                                deleteDocument(id, (doc as any).file_path);
+                                            }} 
+                                        />
                                     ))}
                                 </div>
+                            </div>
+                        )}
+                        
+                        {subjectDocs.length === 0 && subjectGroups.length === 0 && (
+                            <div className="p-8 text-center bg-gray-50/50 dark:bg-gray-800/20 rounded-[32px] border border-dashed border-gray-100 dark:border-gray-800">
+                                <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest">Chưa có dữ liệu</p>
+                                <button onClick={() => triggerUpload(subject.id)} className="mt-3 text-[10px] font-black text-primary uppercase">Tải tệp đầu tiên</button>
                             </div>
                         )}
                     </div>
@@ -258,13 +277,14 @@ export const StudyDocuments: React.FC = () => {
                              <span className="material-symbols-outlined text-[28px]">description</span>
                           </div>
                           <div className="flex-1 min-w-0">
-                              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Tệp gốc</p>
-                              <p className="text-sm font-black text-gray-900 dark:text-white truncate">{uploadData.file.name}</p>
+                              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Đích đến: <span className="text-primary">{getTargetGroupName()}</span></p>
+                              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Môn học: <span className="text-indigo-500">{subjects.find(s => s.id === uploadData.subjectId)?.name}</span></p>
+                              <p className="text-sm font-black text-gray-900 dark:text-white truncate mt-1">{uploadData.file.name}</p>
                           </div>
                       </div>
 
                       <div className="space-y-1.5">
-                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Tên mục</label>
+                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Tiêu đề tài liệu</label>
                           <input 
                               type="text"
                               value={uploadData.title}
@@ -280,7 +300,7 @@ export const StudyDocuments: React.FC = () => {
                         disabled={isUploading || !uploadData.title}
                         className="w-full h-14 bg-primary text-white rounded-[24px] font-black uppercase tracking-widest text-xs shadow-xl shadow-primary/30 active:scale-95 transition-all flex items-center justify-center gap-3"
                     >
-                        {isUploading ? <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span> : "Lưu tài liệu"}
+                        {isUploading ? <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span> : "Xác nhận tải lên"}
                     </button>
                   </div>
               </div>
@@ -293,19 +313,13 @@ export const StudyDocuments: React.FC = () => {
 const FolderView: React.FC<{ group: DocumentGroup, docs: StudyDocument[], searchQuery: string, onDeleteGroup: () => void, onDeleteDoc: (id: string) => void, onAddDoc: () => void }> = ({ group, docs, searchQuery, onDeleteGroup, onDeleteDoc, onAddDoc }) => {
     const [isOpen, setIsOpen] = useState(false);
 
-    // Tự động mở thư mục nếu đang có tìm kiếm và thư mục có chứa kết quả
     useEffect(() => {
-        if (searchQuery.trim() && docs.length > 0) {
-            setIsOpen(true);
-        }
+        if (searchQuery.trim() && docs.length > 0) setIsOpen(true);
     }, [searchQuery, docs.length]);
 
     return (
         <div className={`rounded-[32px] overflow-hidden transition-all duration-300 ${isOpen ? 'bg-white dark:bg-surface-dark shadow-soft ring-1 ring-gray-100 dark:ring-gray-800' : 'bg-gray-50/50 dark:bg-gray-800/20'}`}>
-            <div 
-                className="p-4 flex items-center justify-between cursor-pointer group"
-                onClick={() => setIsOpen(!isOpen)}
-            >
+            <div className="p-4 flex items-center justify-between cursor-pointer group" onClick={() => setIsOpen(!isOpen)}>
                 <div className="flex items-center gap-4">
                     <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${isOpen ? 'bg-primary text-white shadow-glow' : 'bg-white dark:bg-surface-dark text-gray-400'}`}>
                         <span className="material-symbols-outlined text-[26px] font-bold">{isOpen ? 'folder_open' : 'folder'}</span>
@@ -316,13 +330,10 @@ const FolderView: React.FC<{ group: DocumentGroup, docs: StudyDocument[], search
                     </div>
                 </div>
                 <div className="flex items-center gap-1">
-                    <button 
-                        onClick={(e) => { e.stopPropagation(); onAddDoc(); }} 
-                        className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center hover:bg-primary hover:text-white transition-all mr-1"
-                    >
+                    <button onClick={(e) => { e.stopPropagation(); onAddDoc(); }} className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center hover:bg-primary hover:text-white transition-all mr-1">
                         <span className="material-symbols-outlined text-[18px] font-bold">add</span>
                     </button>
-                    <button onClick={(e) => { e.stopPropagation(); onDeleteGroup(); }} className="p-2 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={(e) => { e.stopPropagation(); if(confirm("Xóa nhóm này?")) onDeleteGroup(); }} className="p-2 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
                         <span className="material-symbols-outlined text-[18px]">delete</span>
                     </button>
                     <span className={`material-symbols-outlined text-gray-300 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}>expand_more</span>
@@ -334,7 +345,7 @@ const FolderView: React.FC<{ group: DocumentGroup, docs: StudyDocument[], search
                     {docs.length > 0 ? (
                         docs.map(doc => <DocumentCard key={doc.id} doc={doc} onDelete={onDeleteDoc} />)
                     ) : (
-                        <div className="py-6 text-center text-[10px] font-bold text-gray-400 uppercase tracking-widest opacity-50 flex flex-col items-center gap-2">
+                        <div className="py-6 text-center text-[10px] font-bold text-gray-400 uppercase tracking-widest opacity-50">
                             Thư mục trống
                         </div>
                     )}
@@ -346,9 +357,9 @@ const FolderView: React.FC<{ group: DocumentGroup, docs: StudyDocument[], search
 
 const DocumentCard: React.FC<{ doc: StudyDocument; subject?: Subject; onDelete: (id: string) => void }> = ({ doc, subject, onDelete }) => {
     const getFileIcon = (type: string) => {
+        if (!type) return 'insert_drive_file';
         if (type.includes('pdf')) return 'description';
         if (type.includes('image')) return 'image';
-        if (type.includes('word') || type.includes('text')) return 'article';
         return 'insert_drive_file';
     };
 
@@ -360,17 +371,14 @@ const DocumentCard: React.FC<{ doc: StudyDocument; subject?: Subject; onDelete: 
                 </div>
                 <div className="flex-1 min-w-0">
                     <h3 className="text-sm font-black text-gray-900 dark:text-white truncate">{doc.title}</h3>
-                    <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-tight">{doc.upload_date}</span>
-                    </div>
+                    <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tight">{doc.upload_date ? new Date(doc.upload_date).toLocaleDateString('vi-VN') : 'N/A'}</p>
                 </div>
             </div>
-
             <div className="flex gap-1">
-                <a href={doc.file_data} download={doc.file_name} className="w-8 h-8 rounded-full flex items-center justify-center text-gray-300 hover:text-primary transition-colors">
-                    <span className="material-symbols-outlined text-[18px]">download</span>
+                <a href={doc.file_data} target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-full flex items-center justify-center text-gray-300 hover:text-primary transition-colors">
+                    <span className="material-symbols-outlined text-[18px]">open_in_new</span>
                 </a>
-                <button onClick={() => onDelete(doc.id)} className="w-8 h-8 rounded-full flex items-center justify-center text-gray-300 hover:text-red-500 transition-colors">
+                <button onClick={() => { if(confirm("Xóa tài liệu này?")) onDelete(doc.id); }} className="w-8 h-8 rounded-full flex items-center justify-center text-gray-300 hover:text-red-500 transition-colors">
                     <span className="material-symbols-outlined text-[18px]">delete</span>
                 </button>
             </div>

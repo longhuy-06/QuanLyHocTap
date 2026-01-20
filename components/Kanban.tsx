@@ -16,6 +16,7 @@ export const Kanban: React.FC = () => {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [isAddSubjectModalOpen, setIsAddSubjectModalOpen] = useState(false);
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
+  const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
   
   const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -52,6 +53,13 @@ export const Kanban: React.FC = () => {
       }).length;
   }, [tasks, currentTime]);
 
+  const handleConfirmDeleteTask = () => {
+      if (taskToDelete) {
+          deleteTask(taskToDelete);
+          setTaskToDelete(null);
+      }
+  };
+
   return (
     <div className="h-full flex flex-col w-full pb-32 pt-4 bg-background-light dark:bg-background-dark relative overflow-hidden">
       <header className="flex items-center px-5 py-4 shrink-0 gap-4">
@@ -65,16 +73,23 @@ export const Kanban: React.FC = () => {
             <h1 className="text-gray-900 dark:text-white text-xl font-black tracking-tight">Nhiệm vụ</h1>
          </div>
          <div className="flex gap-2">
-            <button onClick={() => setIsAddSubjectModalOpen(true)} className="flex size-10 items-center justify-center rounded-2xl bg-primary/10 text-primary hover:bg-primary/20 transition-all active:scale-90">
+            <button 
+                onClick={() => setIsResetConfirmOpen(true)} 
+                className="flex size-10 items-center justify-center rounded-2xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all active:scale-90 shadow-sm"
+                title="Xóa sạch mọi nhiệm vụ"
+            >
+                <span className="material-symbols-outlined text-[20px]">delete_sweep</span>
+            </button>
+            <button onClick={() => setIsAddSubjectModalOpen(true)} className="flex size-10 items-center justify-center rounded-2xl bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all active:scale-90 shadow-sm" title="Thêm môn học mới">
                 <span className="material-symbols-outlined text-[20px]">library_add</span>
             </button>
          </div>
       </header>
       
       {overdueCount > 0 && (
-          <div className="mx-5 mb-4 bg-red-50 dark:bg-red-900/20 rounded-2xl p-3 flex items-center gap-3 border border-red-100 dark:border-red-900/30">
+          <div className="mx-5 mb-4 bg-red-50 dark:bg-red-900/20 rounded-2xl p-3 flex items-center gap-3 border border-red-100 dark:border-red-900/30 animate-pulse">
               <span className="material-symbols-outlined text-red-500 fill-1 text-[20px]">warning</span>
-              <p className="text-[10px] font-black text-red-600 dark:text-red-400 uppercase tracking-wider">Có {overdueCount} việc quá hạn!</p>
+              <p className="text-[10px] font-black text-red-600 dark:text-red-400 uppercase tracking-wider">Cảnh báo: Có {overdueCount} việc đã quá hạn!</p>
           </div>
       )}
 
@@ -85,13 +100,13 @@ export const Kanban: React.FC = () => {
 
       <div className="flex-1 overflow-x-auto snap-x flex gap-4 px-5 pb-6 hide-scrollbar items-start">
         <Column title="Cần làm" count={filteredTasks.filter(t => t.status === TaskStatus.TODO).length} colorClass="bg-gray-400" onAddClick={() => { setEditingTask(null); setIsTaskModalOpen(true); }}>
-           {filteredTasks.filter(t => t.status === TaskStatus.TODO).map(t => <Card key={t.id} task={t} subjectInfo={subjects.find(s => s.id === t.subject_id)} currentTime={currentTime} onStatusChange={updateTaskStatus} onEdit={() => { setEditingTask(t); setIsTaskModalOpen(true); }} onDelete={deleteTask} />)}
+           {filteredTasks.filter(t => t.status === TaskStatus.TODO).map(t => <Card key={t.id} task={t} subjectInfo={subjects.find(s => s.id === t.subject_id)} currentTime={currentTime} onStatusChange={updateTaskStatus} onProgressChange={updateTaskProgress} onEdit={() => { setEditingTask(t); setIsTaskModalOpen(true); }} onDeleteRequest={setTaskToDelete} />)}
         </Column>
         <Column title="Đang làm" count={filteredTasks.filter(t => t.status === TaskStatus.DOING).length} colorClass="bg-primary" highlight>
-           {filteredTasks.filter(t => t.status === TaskStatus.DOING).map(t => <Card key={t.id} task={t} subjectInfo={subjects.find(s => s.id === t.subject_id)} currentTime={currentTime} showProgress onStatusChange={updateTaskStatus} onProgressChange={updateTaskProgress} onEdit={() => { setEditingTask(t); setIsTaskModalOpen(true); }} onDelete={deleteTask} />)}
+           {filteredTasks.filter(t => t.status === TaskStatus.DOING).map(t => <Card key={t.id} task={t} subjectInfo={subjects.find(s => s.id === t.subject_id)} currentTime={currentTime} showProgress onStatusChange={updateTaskStatus} onProgressChange={updateTaskProgress} onEdit={() => { setEditingTask(t); setIsTaskModalOpen(true); }} onDeleteRequest={setTaskToDelete} />)}
         </Column>
         <Column title="Xong" count={filteredTasks.filter(t => t.status === TaskStatus.DONE).length} colorClass="bg-emerald-500">
-           {filteredTasks.filter(t => t.status === TaskStatus.DONE).map(t => <Card key={t.id} task={t} subjectInfo={subjects.find(s => s.id === t.subject_id)} currentTime={currentTime} isDone onStatusChange={updateTaskStatus} onEdit={() => { setEditingTask(t); setIsTaskModalOpen(true); }} onDelete={deleteTask} />)}
+           {filteredTasks.filter(t => t.status === TaskStatus.DONE).map(t => <Card key={t.id} task={t} subjectInfo={subjects.find(s => s.id === t.subject_id)} currentTime={currentTime} isDone onStatusChange={updateTaskStatus} onProgressChange={updateTaskProgress} onEdit={() => { setEditingTask(t); setIsTaskModalOpen(true); }} onDeleteRequest={setTaskToDelete} />)}
         </Column>
       </div>
 
@@ -99,16 +114,32 @@ export const Kanban: React.FC = () => {
       {isAddSubjectModalOpen && <AddSubjectModal onClose={() => setIsAddSubjectModalOpen(false)} />}
       
       {isResetConfirmOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md px-4">
-              <div className="bg-white dark:bg-surface-dark w-full max-w-sm p-8 rounded-[40px] text-center shadow-2xl border border-white/20">
+          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-md px-4">
+              <div className="bg-white dark:bg-surface-dark w-full max-sm p-8 rounded-[40px] text-center shadow-2xl border border-white/20 animate-fade-in-up">
                   <div className="w-20 h-20 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
-                      <span className="material-symbols-outlined text-[40px]">delete_forever</span>
+                      <span className="material-symbols-outlined text-[40px] fill-1">delete_forever</span>
                   </div>
-                  <h3 className="text-xl font-black mb-2">Xóa tất cả?</h3>
-                  <p className="text-sm text-gray-500 mb-8">Hành động này sẽ xóa vĩnh viễn mọi nhiệm vụ của bạn khỏi hệ thống.</p>
+                  <h3 className="text-xl font-black mb-2 text-gray-900 dark:text-white">Xóa sạch nhiệm vụ?</h3>
+                  <p className="text-sm text-gray-500 mb-8 leading-relaxed">Hành động này sẽ xóa vĩnh viễn toàn bộ nhiệm vụ khỏi Database SQL. Không thể hoàn tác!</p>
                   <div className="grid grid-cols-2 gap-4">
                       <button onClick={() => setIsResetConfirmOpen(false)} className="py-4 rounded-2xl bg-gray-100 dark:bg-gray-800 font-bold text-gray-400">Hủy</button>
-                      <button onClick={() => { clearAllTasks(); setIsResetConfirmOpen(false); }} className="py-4 rounded-2xl bg-red-500 text-white font-black shadow-lg shadow-red-500/30">Xóa hết</button>
+                      <button onClick={() => { clearAllTasks(); setIsResetConfirmOpen(false); }} className="py-4 rounded-2xl bg-red-500 text-white font-black shadow-lg shadow-red-500/30 active:scale-95 transition-all">Xóa tất cả</button>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {taskToDelete && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-md px-4">
+              <div className="bg-white dark:bg-surface-dark w-full max-sm p-8 rounded-[40px] text-center shadow-2xl border border-white/20 animate-fade-in-up">
+                  <div className="w-20 h-20 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                      <span className="material-symbols-outlined text-[40px] fill-1">delete_forever</span>
+                  </div>
+                  <h3 className="text-xl font-black mb-2 text-gray-900 dark:text-white">Xóa nhiệm vụ này?</h3>
+                  <p className="text-sm text-gray-500 mb-8 leading-relaxed">Hành động này sẽ xóa vĩnh viễn nhiệm vụ khỏi Database SQL. Không thể hoàn tác!</p>
+                  <div className="grid grid-cols-2 gap-4">
+                      <button onClick={() => setTaskToDelete(null)} className="py-4 rounded-2xl bg-gray-100 dark:bg-gray-800 font-bold text-gray-400">Hủy</button>
+                      <button onClick={handleConfirmDeleteTask} className="py-4 rounded-2xl bg-red-500 text-white font-black shadow-lg shadow-red-500/30 active:scale-95 transition-all">Xác nhận xóa</button>
                   </div>
               </div>
           </div>
@@ -129,7 +160,7 @@ const Column: React.FC<{ title: string; count: number; colorClass: string; child
     <div className="flex items-center justify-between px-3 py-3 font-black">
       <div className="flex items-center gap-3">
         <div className={`w-2 h-2 rounded-full ${colorClass} shadow-sm`}></div>
-        <h3 className="text-sm uppercase tracking-widest text-gray-500">{title}</h3>
+        <h3 className="text-sm uppercase tracking-widest text-gray-400">{title}</h3>
         <span className="bg-white dark:bg-gray-800 px-2 py-0.5 rounded-lg text-[10px] shadow-sm">{count}</span>
       </div>
     </div>
@@ -144,7 +175,20 @@ const Column: React.FC<{ title: string; count: number; colorClass: string; child
   </div>
 );
 
-const Card: React.FC<any> = ({ task, subjectInfo, currentTime, showProgress, isDone, onStatusChange, onProgressChange, onEdit, onDelete }) => {
+const Card: React.FC<any> = ({ task, subjectInfo, currentTime, showProgress, isDone, onStatusChange, onProgressChange, onEdit, onDeleteRequest }) => {
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const menuRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+                setIsMenuOpen(false);
+            }
+        };
+        if (isMenuOpen) document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [isMenuOpen]);
+
     const isOverdue = useMemo(() => {
         if (isDone || !task.due_date) return false;
         const [datePart, timePart] = task.due_date.split(' ');
@@ -155,36 +199,92 @@ const Card: React.FC<any> = ({ task, subjectInfo, currentTime, showProgress, isD
         return dl < currentTime;
     }, [isDone, task.due_date, currentTime]);
 
+    const handleProgressSlide = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = parseInt(e.target.value);
+        onProgressChange(task.id, val);
+    };
+
+    // Tiến độ hiển thị thực tế
+    const displayProgress = task.status === TaskStatus.DONE ? 100 : (task.status === TaskStatus.TODO ? 0 : task.progress);
+
     return (
-        <div className={`relative bg-white dark:bg-surface-dark p-5 rounded-[28px] shadow-soft border group transition-all hover:shadow-glow ${isOverdue ? 'border-red-100 bg-red-50/20' : 'border-transparent'}`} onClick={onEdit}>
+        <div className={`relative bg-white dark:bg-surface-dark p-5 rounded-[28px] shadow-soft border group transition-all hover:shadow-glow cursor-pointer ${isOverdue ? 'border-red-100 bg-red-50/20 shadow-red-500/5' : 'border-transparent'}`} onClick={onEdit}>
             <div className="absolute left-0 top-6 bottom-6 w-1 rounded-r-full" style={{ backgroundColor: subjectInfo?.color || '#eee' }} />
             
+            <div className="absolute top-4 right-4" ref={menuRef}>
+                <button 
+                    onClick={(e) => { 
+                        e.stopPropagation(); 
+                        setIsMenuOpen(!isMenuOpen);
+                    }} 
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all active:scale-90 z-20 ${isMenuOpen ? 'bg-primary text-white shadow-lg' : 'text-gray-300 hover:text-primary hover:bg-primary/5'}`}
+                >
+                    <span className="material-symbols-outlined text-[20px]">{isMenuOpen ? 'close' : 'more_vert'}</span>
+                </button>
+
+                {isMenuOpen && (
+                    <div className="absolute right-0 top-11 w-48 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 py-2 z-50 animate-fade-in-up origin-top-right overflow-hidden">
+                        <button onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onEdit(); }} className="w-full px-4 py-2.5 flex items-center gap-3 text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                            <span className="material-symbols-outlined text-[18px]">edit</span> Đổi tên / Thời gian
+                        </button>
+                        
+                        <div className="h-px bg-gray-100 dark:bg-gray-700 my-1 mx-2" />
+                        
+                        <div className="px-4 py-1.5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Trạng thái</div>
+                        <button onClick={(e) => { e.stopPropagation(); onStatusChange(task.id, TaskStatus.TODO); setIsMenuOpen(false); }} className={`w-full px-4 py-2 flex items-center gap-3 text-xs font-bold transition-colors ${task.status === TaskStatus.TODO ? 'text-primary bg-primary/5' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
+                             <span className="material-symbols-outlined text-[18px]">list</span> Cần làm
+                        </button>
+                        <button onClick={(e) => { e.stopPropagation(); onStatusChange(task.id, TaskStatus.DOING); setIsMenuOpen(false); }} className={`w-full px-4 py-2 flex items-center gap-3 text-xs font-bold transition-colors ${task.status === TaskStatus.DOING ? 'text-indigo-500 bg-indigo-50/10' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
+                             <span className="material-symbols-outlined text-[18px]">play_arrow</span> Đang làm
+                        </button>
+                        <button onClick={(e) => { e.stopPropagation(); onStatusChange(task.id, TaskStatus.DONE); setIsMenuOpen(false); }} className={`w-full px-4 py-2 flex items-center gap-3 text-xs font-bold transition-colors ${task.status === TaskStatus.DONE ? 'text-emerald-500 bg-emerald-50/10' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
+                             <span className="material-symbols-outlined text-[18px]">check_circle</span> Hoàn thành
+                        </button>
+
+                        <div className="h-px bg-gray-100 dark:bg-gray-700 my-1 mx-2" />
+                        <button onClick={(e) => { e.stopPropagation(); onDeleteRequest(task.id); setIsMenuOpen(false); }} className="w-full px-4 py-2.5 flex items-center gap-3 text-sm font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                            <span className="material-symbols-outlined text-[18px]">delete_forever</span> Xóa vĩnh viễn
+                        </button>
+                    </div>
+                )}
+            </div>
+
             <div className="flex flex-col gap-3">
                 <div className="flex justify-between items-start">
-                    <span className="text-[9px] font-black text-primary uppercase tracking-widest px-2 py-1 bg-primary/5 rounded-lg">
-                        {subjectInfo?.name}
+                    <span className="text-[9px] font-black text-primary uppercase tracking-widest px-2.5 py-1 bg-primary/5 dark:bg-primary/20 rounded-lg">
+                        {subjectInfo?.name || 'Khác'}
                     </span>
-                    <button 
-                        onClick={(e) => { e.stopPropagation(); if(confirm("Xóa nhiệm vụ này?")) onDelete(task.id); }} 
-                        className="text-gray-300 hover:text-red-500 transition-all active:scale-90"
-                    >
-                        <span className="material-symbols-outlined text-base">delete</span>
-                    </button>
                 </div>
 
-                <h4 className={`font-black text-[16px] leading-tight ${isDone ? 'line-through text-gray-400' : 'text-gray-900 dark:text-white'}`}>
+                <h4 className={`font-black text-[16px] leading-tight pr-10 transition-all ${isDone ? 'line-through text-gray-400 opacity-60' : 'text-gray-900 dark:text-white'}`}>
                     {task.title}
                 </h4>
 
-                {showProgress && (
-                    <div className="space-y-1.5" onClick={e => e.stopPropagation()}>
-                        <div className="flex justify-between items-center text-[9px] font-bold text-primary">
-                            <span>TIẾN ĐỘ</span>
-                            <span>{task.progress}%</span>
-                        </div>
-                        <input type="range" value={task.progress} onChange={e => onProgressChange(task.id, parseInt(e.target.value))} className="w-full h-1 bg-gray-100 dark:bg-gray-800 accent-primary rounded-full cursor-pointer" />
+                <div className="space-y-1.5 mt-1" onClick={e => e.stopPropagation()}>
+                    <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-tighter text-gray-400">
+                        <span className={isDone ? 'text-emerald-500' : 'text-primary'}>Tiến độ học</span>
+                        <span className="text-gray-900 dark:text-white">{displayProgress}%</span>
                     </div>
-                )}
+                    
+                    {task.status === TaskStatus.DOING ? (
+                        <input 
+                            type="range" 
+                            min="0" 
+                            max="100" 
+                            step="5"
+                            value={task.progress} 
+                            onChange={handleProgressSlide}
+                            className="w-full h-1.5 bg-gray-100 dark:bg-gray-800 rounded-lg appearance-none cursor-pointer accent-primary"
+                        />
+                    ) : (
+                        <div className="w-full h-1.5 bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden">
+                            <div 
+                                className={`h-full transition-all duration-500 ${isDone ? 'bg-emerald-500' : 'bg-primary/30'}`} 
+                                style={{ width: `${displayProgress}%` }}
+                            />
+                        </div>
+                    )}
+                </div>
 
                 <div className="flex items-center justify-between mt-1">
                     <div className={`flex items-center gap-1.5 text-[10px] font-bold ${isOverdue ? 'text-red-500' : 'text-gray-400'}`}>
@@ -192,25 +292,8 @@ const Card: React.FC<any> = ({ task, subjectInfo, currentTime, showProgress, isD
                         {task.due_date}
                     </div>
                     
-                    <div className="flex bg-gray-50 dark:bg-gray-800 rounded-xl p-0.5 gap-0.5" onClick={e => e.stopPropagation()}>
-                        <button 
-                            onClick={() => onStatusChange(task.id, TaskStatus.TODO)}
-                            className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${task.status === TaskStatus.TODO ? 'bg-white dark:bg-gray-700 text-gray-900 shadow-sm' : 'text-gray-300 hover:text-gray-500'}`}
-                        >
-                            <span className="material-symbols-outlined text-base">list</span>
-                        </button>
-                        <button 
-                            onClick={() => onStatusChange(task.id, TaskStatus.DOING)}
-                            className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${task.status === TaskStatus.DOING ? 'bg-primary text-white shadow-lg' : 'text-gray-300 hover:text-primary'}`}
-                        >
-                            <span className="material-symbols-outlined text-base">play_arrow</span>
-                        </button>
-                        <button 
-                            onClick={() => onStatusChange(task.id, TaskStatus.DONE)}
-                            className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${task.status === TaskStatus.DONE ? 'bg-emerald-500 text-white shadow-lg' : 'text-gray-300 hover:text-emerald-500'}`}
-                        >
-                            <span className="material-symbols-outlined text-base">check</span>
-                        </button>
+                    <div className="text-[9px] font-black uppercase text-gray-300 tracking-tighter">
+                        ID: {task.id.slice(-4)}
                     </div>
                 </div>
             </div>
@@ -237,24 +320,24 @@ const TaskModal: React.FC<any> = ({ onClose, task, defaultSubject }) => {
     return (
         <div className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in-up">
             <form onSubmit={handleSubmit(onSubmit)} className="bg-white dark:bg-surface-dark w-full max-w-md p-8 rounded-[40px] shadow-2xl space-y-6">
-                <h2 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">{isEdit ? 'Sửa nhiệm vụ' : 'Nhiệm vụ mới'}</h2>
+                <h2 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">{isEdit ? 'Cập nhật nhiệm vụ' : 'Nhiệm vụ mới'}</h2>
                 <div className="space-y-4">
                     <div className="space-y-1">
-                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Tên công việc</label>
-                        <input {...register('title', { required: true })} className="w-full p-4 bg-gray-50 dark:bg-gray-800 rounded-2xl border-none font-bold text-sm focus:ring-2 focus:ring-primary/50" placeholder="Học bài, làm BT..." />
+                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Tiêu đề bài học / Công việc</label>
+                        <input {...register('title', { required: true })} className="w-full p-4 bg-gray-50 dark:bg-gray-800 rounded-2xl border-none font-bold text-sm focus:ring-2 focus:ring-primary/50 text-gray-900 dark:text-white" placeholder="VD: Làm bài tập toán trang 15..." />
                     </div>
                     
                     <div className="space-y-1">
-                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Môn học</label>
-                        <select {...register('subject_id')} className="w-full p-4 bg-gray-50 dark:bg-gray-800 rounded-2xl border-none text-sm font-bold">
+                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Thuộc môn học</label>
+                        <select {...register('subject_id')} className="w-full p-4 bg-gray-50 dark:bg-gray-800 rounded-2xl border-none text-sm font-bold text-gray-900 dark:text-white">
                             {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                         </select>
                     </div>
 
                     <div className="space-y-1">
-                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Hạn chót</label>
+                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Thời gian hoàn thành</label>
                         <div onClick={() => setIsCal(true)} className="p-4 bg-gray-50 dark:bg-gray-800 rounded-2xl cursor-pointer text-sm font-bold flex justify-between items-center group">
-                            <span className={dateVal ? 'text-gray-900 dark:text-white' : 'text-gray-400'}>{dateVal || 'Chọn thời gian...'}</span>
+                            <span className={dateVal ? 'text-gray-900 dark:text-white' : 'text-gray-400'}>{dateVal || 'Chọn ngày & giờ...'}</span>
                             <span className="material-symbols-outlined text-primary group-hover:scale-110 transition-transform">calendar_month</span>
                         </div>
                     </div>
@@ -262,7 +345,7 @@ const TaskModal: React.FC<any> = ({ onClose, task, defaultSubject }) => {
 
                 <div className="flex gap-3">
                     <button type="button" onClick={onClose} className="flex-1 py-4 bg-gray-100 dark:bg-gray-800 text-gray-400 font-bold rounded-2xl">Hủy</button>
-                    <button type="submit" className="flex-2 py-4 bg-primary text-white font-black rounded-2xl shadow-xl shadow-primary/30 active:scale-[0.98] transition-all">Lưu thay đổi</button>
+                    <button type="submit" className="flex-2 py-4 bg-primary text-white font-black rounded-2xl shadow-xl shadow-primary/30 active:scale-[0.98] transition-all">Lưu thông tin</button>
                 </div>
                 {isCal && <CalendarPicker initialDate={dateVal} onSelect={d => { setValue('due_date', d); setIsCal(false); }} onClose={() => setIsCal(false)} />}
             </form>
@@ -282,10 +365,10 @@ const AddSubjectModal: React.FC<any> = ({ onClose }) => {
                     <div className="w-16 h-16 bg-primary/10 text-primary rounded-[20px] flex items-center justify-center mx-auto mb-4">
                         <span className="material-symbols-outlined text-[32px]">bookmark_add</span>
                     </div>
-                    <h2 className="text-xl font-black text-gray-900 dark:text-white">Thêm môn học</h2>
+                    <h2 className="text-xl font-black text-gray-900 dark:text-white">Thêm môn học mới</h2>
                 </div>
                 
-                <input {...register('name', { required: true })} className="w-full p-4 bg-gray-50 dark:bg-gray-800 rounded-2xl border-none font-bold text-center" placeholder="Nhập tên môn..." autoFocus />
+                <input {...register('name', { required: true })} className="w-full p-4 bg-gray-50 dark:bg-gray-800 rounded-2xl border-none font-bold text-center text-gray-900 dark:text-white" placeholder="Nhập tên môn học..." autoFocus />
                 
                 <div className="flex gap-2.5 justify-center flex-wrap">
                     {colors.map(c => (
@@ -303,7 +386,7 @@ const AddSubjectModal: React.FC<any> = ({ onClose }) => {
 
                 <div className="grid grid-cols-2 gap-3">
                     <button type="button" onClick={onClose} className="py-4 bg-gray-100 dark:bg-gray-800 text-gray-400 font-bold rounded-2xl uppercase text-[10px] tracking-widest">Hủy</button>
-                    <button type="submit" className="py-4 bg-primary text-white font-black rounded-2xl shadow-xl shadow-primary/30 uppercase text-[10px] tracking-widest">Thêm môn</button>
+                    <button type="submit" className="py-4 bg-primary text-white font-black rounded-2xl shadow-xl shadow-primary/30 uppercase text-[10px] tracking-widest">Hoàn tất</button>
                 </div>
             </form>
         </div>

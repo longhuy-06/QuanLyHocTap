@@ -9,8 +9,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Fira+Code:wght@500&display=swap" rel="stylesheet" />
-    <!-- Material Symbols Outlined -->
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet" />
+    <!-- Material Symbols Outlined - Đã cập nhật link chuẩn -->
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet" />
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <script>
@@ -64,7 +64,7 @@
     <style>
       /* Cấu hình chuẩn cho Material Symbols */
       .material-symbols-outlined {
-        font-family: 'Material Symbols Outlined';
+        font-family: 'Material Symbols Outlined' !important;
         font-weight: normal;
         font-style: normal;
         font-size: 24px;
@@ -75,12 +75,10 @@
         white-space: nowrap;
         word-wrap: normal;
         direction: ltr;
-        -webkit-font-feature-settings: 'liga';
         -webkit-font-smoothing: antialiased;
         font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
       }
 
-      /* Hỗ trợ class fill-1 để làm icon dạng đặc (filled) */
       .fill-1 {
         font-variation-settings: 'FILL' 1 !important;
       }
@@ -106,10 +104,6 @@
         background: rgba(15, 21, 26, 0.85);
         border-top: 1px solid rgba(255, 255, 255, 0.05);
       }
-      .perspective-1000 { perspective: 1000px; }
-      .transform-style-3d { transform-style: preserve-3d; }
-      .backface-hidden { backface-visibility: hidden; }
-      .rotate-y-180 { transform: rotateY(180deg); }
     </style>
   <script type="importmap">
 {
@@ -135,7 +129,6 @@
 </head>
   <body class="bg-background-light dark:bg-background-dark text-text-main dark:text-gray-100 transition-colors duration-300">
     <div id="root"></div>
-    <!-- Thẻ script quan trọng để Vite có thể tìm và biên dịch index.tsx -->
     <script type="module" src="/index.tsx"></script>
   </body>
 </html>

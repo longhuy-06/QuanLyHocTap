@@ -250,7 +250,7 @@ export const Dashboard: React.FC = () => {
 
 const TaskRow: React.FC<{ task: any, subjects: any[], onComplete: () => void, onDelete: () => void, onEdit: () => void }> = ({ task, subjects, onComplete, onDelete, onEdit }) => (
     <div 
-        className={`bg-white dark:bg-surface-dark p-4 rounded-3xl shadow-soft flex items-center justify-between gap-3 border border-transparent transition-all hover:border-primary/20 ${task.status === TaskStatus.DONE ? 'opacity-60' : ''}`}
+        className={`bg-white dark:bg-surface-dark p-4 rounded-3xl shadow-soft flex items-center justify-between gap-3 border border-transparent transition-all hover:border-primary/20 cursor-pointer ${task.status === TaskStatus.DONE ? 'opacity-60' : ''}`}
         onClick={onEdit}
     >
         <div className="flex items-center gap-3 flex-1 min-w-0">

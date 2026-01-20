@@ -179,16 +179,30 @@ export const CalendarView: React.FC = () => {
                 const isSel = isSameDay(curr, selectedDate);
                 const stats = daysStatus.get(d);
                 const isToday = isSameDay(curr, new Date());
+                
                 let bg = 'text-gray-700 dark:text-gray-300';
+                
                 if (stats) {
-                    bg = stats.done === stats.total ? 'bg-emerald-500 text-white' : 'bg-amber-400 text-white';
+                    const ratio = stats.done / stats.total;
+                    if (ratio === 0) bg = 'bg-red-500 text-white shadow-md';
+                    else if (ratio < 0.5) bg = 'bg-orange-500 text-white shadow-md';
+                    else if (ratio < 1) bg = 'bg-amber-400 text-white shadow-md';
+                    else bg = 'bg-emerald-500 text-white shadow-md';
                 }
+
                 return (
                     <div key={d} onClick={() => setSelectedDate(curr)} className="flex flex-col items-center cursor-pointer relative">
                         <span className={`flex items-center justify-center w-10 h-10 text-sm font-black rounded-2xl transition-all ${bg} ${isSel ? 'ring-4 ring-primary/20 scale-110 shadow-xl' : ''} ${isToday && !stats ? 'border-2 border-primary' : ''}`}>{d}</span>
                     </div>
                 );
               })}
+          </div>
+          
+          <div className="mt-8 flex justify-center items-center gap-4 border-t border-gray-100 dark:border-gray-800 pt-4">
+              <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-red-500"></div><span className="text-[9px] font-bold text-gray-400 uppercase">0%</span></div>
+              <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-orange-500"></div><span className="text-[9px] font-bold text-gray-400 uppercase">&lt;50%</span></div>
+              <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-amber-400"></div><span className="text-[9px] font-bold text-gray-400 uppercase">50-99%</span></div>
+              <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div><span className="text-[9px] font-bold text-gray-400 uppercase">100%</span></div>
           </div>
        </div>
 
