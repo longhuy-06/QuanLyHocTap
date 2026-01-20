@@ -38,9 +38,10 @@ export const login = async (credentials: LoginFormValues): Promise<UserProfile> 
   const { password, ...userProfile } = user;
   
   // Migration: Nếu user cũ chưa có field streak, thêm vào mặc định
+  // Fix: Using last_completed_date to match UserProfile interface
   if (userProfile.streak === undefined) {
       userProfile.streak = 0;
-      userProfile.lastCompletedDate = null;
+      userProfile.last_completed_date = null;
   }
   
   return userProfile;
@@ -56,16 +57,17 @@ export const register = async (data: RegisterFormValues): Promise<UserProfile> =
     throw new Error('Email này đã được sử dụng');
   }
 
+  // Fix: Using snake_case for UserProfile properties to match interface
   const newUser: DBUser = {
     id: Date.now().toString(),
     name: data.name,
     email: data.email,
     password: data.password,
-    avatarUrl: `https://api.dicebear.com/7.x/notionists/svg?seed=${data.name}`, // Tạo avatar ngẫu nhiên
-    isPremium: false,
+    avatar_url: `https://api.dicebear.com/7.x/notionists/svg?seed=${data.name}`, 
+    is_premium: false,
     streak: 0,
-    lastCompletedDate: null,
-    studySessions: {}
+    last_completed_date: null,
+    study_sessions: {}
   };
 
   users.push(newUser);

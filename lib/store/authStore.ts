@@ -1,8 +1,8 @@
 
 import { create } from 'zustand';
 import { UserProfile, Task, TaskStatus } from '../../types';
-import { login, register } from '../mockApi';
 import { LoginFormValues, RegisterFormValues } from '../validators/auth';
+import { supabase } from '../supabase';
 
 interface AuthState {
   user: UserProfile | null;
@@ -22,27 +22,10 @@ interface AuthState {
   
   // Time Tracking
   trackStudyTime: (minutes: number) => void;
+  
+  // Session Init
+  initSession: () => Promise<void>;
 }
-
-const getInitialUser = (): UserProfile | null => {
-    const token = localStorage.getItem('auth_token');
-    if (!token) return null;
-    
-    const usersJson = localStorage.getItem('softstudy_users_db');
-    if (!usersJson) return null;
-    
-    const users = JSON.parse(usersJson);
-    const userId = token.replace('mock_token_', '');
-    const user = users.find((u: any) => u.id === userId);
-    
-    if (user) {
-        const { password, ...profile } = user;
-        return profile;
-    }
-    return null;
-};
-
-const initialUser = getInitialUser();
 
 // Helper to parse "DD/MM/YYYY HH:mm"
 const parseTaskDate = (dateStr: string): Date | null => {
@@ -62,23 +45,52 @@ const parseTaskDate = (dateStr: string): Date | null => {
 };
 
 export const useAuthStore = create<AuthState>((set, get) => ({
-  user: initialUser,
-  isAuthenticated: !!initialUser,
+  user: null,
+  isAuthenticated: false,
   isLoading: false,
   error: null,
+
+  initSession: async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+        
+        if (profile) {
+          set({ user: profile, isAuthenticated: true });
+        }
+      }
+    } catch (e) {
+      console.error("Init session failed", e);
+    }
+  },
 
   login: async (data) => {
     set({ isLoading: true, error: null });
     try {
-      const user = await login(data);
-      localStorage.setItem('auth_token', 'mock_token_' + user.id);
-      
-      if (!user.studySessions) user.studySessions = {};
-      if (!user.status) user.status = "Sinh viên";
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: data.email,
+        password: data.password,
+      });
 
-      set({ user, isAuthenticated: true, isLoading: false });
+      if (authError) throw authError;
+
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', authData.user.id)
+        .single();
+
+      if (profileError) throw profileError;
+
+      set({ user: profile, isAuthenticated: true, isLoading: false });
     } catch (err: any) {
-      set({ error: err.message || 'Đăng nhập thất bại', isLoading: false });
+      const message = err.message || err.error_description || 'Đăng nhập thất bại';
+      set({ error: message, isLoading: false });
       throw err;
     }
   },
@@ -86,40 +98,82 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   register: async (data) => {
     set({ isLoading: true, error: null });
     try {
-      const user = await register(data);
-      localStorage.setItem('auth_token', 'mock_token_' + user.id);
-      user.studySessions = {};
-      user.status = "Sinh viên";
-      set({ user, isAuthenticated: true, isLoading: false });
+      // 1. Đăng ký tài khoản với name trong metadata
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+        options: {
+          data: {
+            name: data.name,
+          },
+        },
+      });
+
+      if (authError) throw authError;
+      if (!authData.user) throw new Error("Không thể tạo người dùng");
+
+      // Nếu Supabase có cấu hình xác thực email, session có thể chưa có ngay
+      if (authData.session) {
+        // Đợi 1 chút để Trigger hoàn thành việc tạo Profile trong database
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', authData.user.id)
+          .single();
+
+        if (!profileError && profile) {
+          set({ user: profile, isAuthenticated: true, isLoading: false });
+        } else {
+          // Fallback nếu trigger chậm
+          const fallbackProfile: UserProfile = {
+            id: authData.user.id,
+            name: data.name,
+            email: data.email,
+            avatar_url: `https://api.dicebear.com/7.x/notionists/svg?seed=${data.name}`,
+            is_premium: false,
+            streak: 0,
+            last_completed_date: null,
+            study_sessions: {},
+            status: "Sinh viên"
+          };
+          set({ user: fallbackProfile, isAuthenticated: true, isLoading: false });
+        }
+      } else {
+        // Trường hợp cần xác thực email (Email Confirmation enabled)
+        set({ 
+          isLoading: false, 
+          error: "Vui lòng kiểm tra email để xác nhận tài khoản trước khi đăng nhập." 
+        });
+      }
     } catch (err: any) {
-      set({ error: err.message || 'Đăng ký thất bại', isLoading: false });
+      console.error("Auth Store Register Error:", err);
+      const message = err.message || err.error_description || 'Đăng ký thất bại';
+      set({ error: message, isLoading: false });
       throw err;
     }
   },
 
-  logout: () => {
-    localStorage.removeItem('auth_token');
+  logout: async () => {
+    await supabase.auth.signOut();
     set({ user: null, isAuthenticated: false });
   },
 
   clearError: () => set({ error: null }),
 
-  updateProfile: (updates) => {
+  updateProfile: async (updates) => {
     const { user } = get();
     if (user) {
       const updatedUser = { ...user, ...updates };
-      
-      const usersJson = localStorage.getItem('softstudy_users_db');
-      if (usersJson) {
-          const users = JSON.parse(usersJson);
-          const index = users.findIndex((u: any) => u.id === user.id);
-          if (index !== -1) {
-              users[index] = { ...users[index], ...updates };
-              localStorage.setItem('softstudy_users_db', JSON.stringify(users));
-          }
-      }
-      
       set({ user: updatedUser });
+
+      if (navigator.onLine) {
+        await supabase
+          .from('profiles')
+          .update(updates)
+          .eq('id', user.id);
+      }
     }
   },
 
@@ -127,8 +181,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const { user } = get();
       if (!user) return;
       const today = new Date().toISOString().split('T')[0];
-      if (user.lastCompletedDate !== today) {
-          get().updateProfile({ streak: user.streak + 1, lastCompletedDate: today });
+      if (user.last_completed_date !== today) {
+          get().updateProfile({ streak: user.streak + 1, last_completed_date: today });
       }
   },
 
@@ -139,9 +193,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const now = new Date();
       const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-      // 1. Kiểm tra nếu đã quá 1 ngày kể từ lần hoàn thành cuối (bỏ lỡ cả ngày)
-      if (user.lastCompletedDate) {
-          const lastDate = new Date(user.lastCompletedDate);
+      if (user.last_completed_date) {
+          const lastDate = new Date(user.last_completed_date);
           lastDate.setHours(0,0,0,0);
           
           const diffTime = todayStart.getTime() - lastDate.getTime();
@@ -155,16 +208,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           }
       }
 
-      // 2. Kiểm tra các nhiệm vụ quá hạn từ những ngày TRƯỚC
-      // Nếu có bất kỳ nhiệm vụ nào của ngày hôm qua hoặc cũ hơn mà CHƯA XONG
       const hasUnfinishedOverdue = tasks.some(t => {
-          if (t.status === TaskStatus.DONE || !t.dueDate) return false;
-          const taskDate = parseTaskDate(t.dueDate);
+          if (t.status === TaskStatus.DONE || !t.due_date) return false;
+          const taskDate = parseTaskDate(t.due_date);
           if (!taskDate) return false;
-
-          // Chỉ tính những nhiệm vụ thuộc về các ngày TRƯỚC ngày hôm nay
-          const isFromPreviousDay = taskDate.getTime() < todayStart.getTime();
-          return isFromPreviousDay;
+          return taskDate.getTime() < todayStart.getTime();
       });
 
       if (hasUnfinishedOverdue && user.streak > 0) {
@@ -176,8 +224,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const { user } = get();
       if (!user) return;
       const today = new Date().toISOString().split('T')[0];
-      const currentSessions = { ...user.studySessions } || {};
+      const currentSessions = { ...user.study_sessions } || {};
       currentSessions[today] = (currentSessions[today] || 0) + minutes;
-      get().updateProfile({ studySessions: currentSessions });
+      get().updateProfile({ study_sessions: currentSessions });
   }
 }));

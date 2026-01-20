@@ -1,4 +1,5 @@
 
+// Fix: Added missing React import to resolve namespace errors for React.FC and React.ReactNode
 import React, { useEffect } from 'react';
 import { HashRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { Dashboard } from './components/Dashboard';
@@ -13,6 +14,7 @@ import { CalendarView } from './components/CalendarView';
 import { StudyDocuments } from './components/StudyDocuments';
 import { SubjectSelection } from './components/SubjectSelection';
 import { useAuthStore } from './lib/store/authStore';
+import { useDataStore } from './lib/store/dataStore';
 import { ConnectivityStatus } from './components/ConnectivityStatus';
 import { StreakSuccessModal } from './components/StreakSuccessModal';
 import { LoginStreakWelcome } from './components/LoginStreakWelcome';
@@ -35,7 +37,14 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 };
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, isLoading } = useAuthStore();
+  
+  if (isLoading) return (
+      <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
+          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+      </div>
+  );
+
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   return <>{children}</>;
 };
@@ -53,6 +62,19 @@ const TimeTracker: React.FC = () => {
 };
 
 const App: React.FC = () => {
+  const { initSession, isAuthenticated, user } = useAuthStore();
+  const { fetchUserData } = useDataStore();
+
+  useEffect(() => {
+    initSession();
+  }, []);
+
+  useEffect(() => {
+      if (isAuthenticated && user) {
+          fetchUserData(user.id);
+      }
+  }, [isAuthenticated, user]);
+
   return (
     <HashRouter>
       <TimeTracker />

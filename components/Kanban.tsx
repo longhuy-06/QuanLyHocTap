@@ -24,7 +24,8 @@ export const Kanban: React.FC = () => {
 
   const filteredTasks = useMemo(() => {
     if (activeSubject === 'all') return tasks;
-    return tasks.filter(t => t.subjectId === activeSubject);
+    // Fix: Using subject_id instead of subjectId to match interface
+    return tasks.filter(t => t.subject_id === activeSubject);
   }, [activeSubject, tasks]);
 
   const parseDate = (dateStr: string): Date | null => {
@@ -47,7 +48,8 @@ export const Kanban: React.FC = () => {
   const overdueCount = useMemo(() => {
       return tasks.filter(t => {
           if (t.status === TaskStatus.DONE) return false;
-          const deadline = parseDate(t.dueDate);
+          // Fix: Using due_date instead of dueDate
+          const deadline = parseDate(t.due_date);
           return deadline ? deadline < currentTime : false;
       }).length;
   }, [tasks, currentTime]);
@@ -132,7 +134,8 @@ export const Kanban: React.FC = () => {
              <Card 
                 key={t.id} 
                 task={t}
-                subjectInfo={getSubjectInfo(t.subjectId)} 
+                // Fix: Using subject_id instead of subjectId
+                subjectInfo={getSubjectInfo(t.subject_id)} 
                 currentTime={currentTime}
                 onStatusChange={updateTaskStatus}
                 onProgressChange={updateTaskProgress}
@@ -147,7 +150,8 @@ export const Kanban: React.FC = () => {
              <Card 
                 key={t.id} 
                 task={t}
-                subjectInfo={getSubjectInfo(t.subjectId)} 
+                // Fix: Using subject_id instead of subjectId
+                subjectInfo={getSubjectInfo(t.subject_id)} 
                 currentTime={currentTime}
                 showProgress 
                 onStatusChange={updateTaskStatus}
@@ -163,7 +167,8 @@ export const Kanban: React.FC = () => {
              <Card 
                 key={t.id} 
                 task={t}
-                subjectInfo={getSubjectInfo(t.subjectId)} 
+                // Fix: Using subject_id instead of subjectId
+                subjectInfo={getSubjectInfo(t.subject_id)} 
                 currentTime={currentTime}
                 isDone 
                 onStatusChange={updateTaskStatus}
@@ -271,23 +276,24 @@ const TaskModal: React.FC<{ onClose: () => void; task?: Task | null; defaultSubj
     const { subjects, addTask, updateTask } = useDataStore();
     const isEdit = !!task;
 
+    // Fix: Using snake_case for Task properties in useForm to match interface
     const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<Partial<Task>>({
         defaultValues: task ? {
             title: task.title,
-            subjectId: task.subjectId,
+            subject_id: task.subject_id,
             priority: task.priority,
-            dueDate: task.dueDate,
+            due_date: task.due_date,
         } : {
             title: '',
-            subjectId: defaultSubject || subjects[0]?.id,
+            subject_id: defaultSubject || subjects[0]?.id,
             priority: Priority.MEDIUM,
-            dueDate: '',
+            due_date: '',
         }
     });
     
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
-    const selectedSubjectId = watch('subjectId');
-    const dueDate = watch('dueDate');
+    const selectedSubjectId = watch('subject_id');
+    const dueDate = watch('due_date');
 
     const onSubmit = (data: Partial<Task>) => {
         if (isEdit && task) {
@@ -296,9 +302,9 @@ const TaskModal: React.FC<{ onClose: () => void; task?: Task | null; defaultSubj
             addTask({
                 id: Date.now().toString(),
                 title: data.title!,
-                subjectId: data.subjectId!,
+                subject_id: data.subject_id!,
                 priority: data.priority as Priority,
-                dueDate: data.dueDate || '',
+                due_date: data.due_date || '',
                 status: TaskStatus.TODO,
                 completed: false,
                 progress: 0
@@ -327,7 +333,7 @@ const TaskModal: React.FC<{ onClose: () => void; task?: Task | null; defaultSubj
                                     <button
                                         key={sub.id}
                                         type="button"
-                                        onClick={() => setValue('subjectId', sub.id)}
+                                        onClick={() => setValue('subject_id', sub.id)}
                                         className={`flex items-center gap-2 px-3 py-2 rounded-xl border whitespace-nowrap transition-all ${selectedSubjectId === sub.id ? 'bg-primary/10 border-primary text-primary font-bold' : 'border-gray-200 dark:border-gray-700 text-gray-500'}`}
                                     >
                                         <div className="w-2 h-2 rounded-full" style={{ backgroundColor: sub.color }}></div>
@@ -351,7 +357,7 @@ const TaskModal: React.FC<{ onClose: () => void; task?: Task | null; defaultSubj
                                     <span className={dueDate ? "" : "text-gray-400"}>{dueDate || "Chọn ngày..."}</span>
                                     <span className="material-symbols-outlined text-gray-400 text-[20px]">calendar_month</span>
                                 </div>
-                                <input type="hidden" {...register('dueDate')} />
+                                <input type="hidden" {...register('due_date')} />
                             </div>
                         </div>
                         <button type="submit" className="w-full bg-primary text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2">
@@ -362,7 +368,7 @@ const TaskModal: React.FC<{ onClose: () => void; task?: Task | null; defaultSubj
                 </div>
             </div>
             {isCalendarOpen && (
-                <CalendarPicker initialDate={dueDate} onSelect={(date) => { setValue('dueDate', date); setIsCalendarOpen(false); }} onClose={() => setIsCalendarOpen(false)} />
+                <CalendarPicker initialDate={dueDate} onSelect={(date) => { setValue('due_date', date); setIsCalendarOpen(false); }} onClose={() => setIsCalendarOpen(false)} />
             )}
         </>
     );
@@ -413,8 +419,9 @@ const Card: React.FC<CardProps> = ({ task, subjectInfo, currentTime, showProgres
   const progressBarRef = useRef<HTMLDivElement>(null);
 
   const isOverdue = useMemo(() => {
-      if (isDone || !task.dueDate) return false;
-      const [datePart, timePart] = task.dueDate.split(' ');
+      // Fix: Using due_date instead of dueDate
+      if (isDone || !task.due_date) return false;
+      const [datePart, timePart] = task.due_date.split(' ');
       const parts = datePart.split('/');
       if (parts.length === 3) {
           let hour = 23, minute = 59, second = 59;
@@ -428,7 +435,7 @@ const Card: React.FC<CardProps> = ({ task, subjectInfo, currentTime, showProgres
           return deadline < currentTime;
       }
       return false;
-  }, [isDone, task.dueDate, currentTime]);
+  }, [isDone, task.due_date, currentTime]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -489,7 +496,8 @@ const Card: React.FC<CardProps> = ({ task, subjectInfo, currentTime, showProgres
         <div className={`pl-3 mt-1 flex items-center justify-between border-t pt-3 ${isOverdue ? 'border-red-100' : 'border-gray-50 dark:border-gray-700'}`}>
             <div className={`flex items-center gap-1.5 ${isOverdue ? 'text-red-500 animate-pulse' : 'text-gray-500'}`}>
                 <span className="material-symbols-outlined text-[16px]">{isDone ? 'event_available' : isOverdue ? 'warning' : 'schedule'}</span>
-                <span className={`text-xs font-medium ${isOverdue ? 'font-bold' : ''}`}>{isDone ? 'Đã xong' : isOverdue ? `${task.dueDate} (Quá hạn)` : task.dueDate || 'Chưa đặt lịch'}</span>
+                {/* Fix: Using due_date instead of dueDate */}
+                <span className={`text-xs font-medium ${isOverdue ? 'font-bold' : ''}`}>{isDone ? 'Đã xong' : isOverdue ? `${task.due_date} (Quá hạn)` : task.due_date || 'Chưa đặt lịch'}</span>
             </div>
         </div>
     </div>

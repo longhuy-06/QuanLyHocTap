@@ -38,10 +38,14 @@ export const RegisterForm: React.FC = () => {
   const handleSubmit = async (values: RegisterFormValues) => {
     try {
       await register(values);
-      // Navigate to Subject Selection instead of Dashboard
-      navigate('/subjects');
-    } catch (e) {
-      console.error("Register failed", e);
+      // Nếu thành công và có session, chuyển hướng
+      // Nếu Supabase yêu cầu confirm email, authStore sẽ set thông báo lỗi hướng dẫn
+      const { error: storeError } = useAuthStore.getState();
+      if (!storeError) {
+        navigate('/subjects');
+      }
+    } catch (e: any) {
+      console.error("Register component error:", e);
     }
   };
 
@@ -52,9 +56,9 @@ export const RegisterForm: React.FC = () => {
       </CardHeader>
       <CardContent>
         {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm font-medium flex items-center gap-2 animate-fade-in-up">
-            <span className="material-symbols-outlined text-[18px]">error</span>
-            {error}
+          <div className={`mb-4 p-3 border rounded-xl text-sm font-medium flex items-center gap-2 animate-fade-in-up ${error.includes('xác nhận') ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-red-50 border-red-200 text-red-600'}`}>
+            <span className="material-symbols-outlined text-[18px]">{error.includes('xác nhận') ? 'info' : 'error'}</span>
+            <span className="flex-1">{error}</span>
           </div>
         )}
         <Form {...form}>

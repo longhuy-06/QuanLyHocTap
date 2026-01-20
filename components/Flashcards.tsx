@@ -18,12 +18,13 @@ export const Flashcards: React.FC = () => {
     setIsGenerating(true);
     const cards = await generateFlashcardsFromText(inputText);
     if (cards.length > 0) {
+      // Fix: Using snake_case for FlashcardSet properties to match interface
       const newSet: FlashcardSet = {
         id: Date.now().toString(),
         title: inputText.substring(0, 20) + '...',
-        subjectId: selectedSubject,
+        subject_id: selectedSubject,
         cards: cards.map((c, i) => ({ id: i.toString(), front: c.front, back: c.back })),
-        createdAt: new Date().toISOString()
+        created_at: new Date().toISOString()
       };
       addFlashcardSet(newSet);
       setInputText('');
@@ -146,7 +147,8 @@ export const Flashcards: React.FC = () => {
                   </div>
                   <div>
                     <h3 className="font-bold text-gray-900 dark:text-white">{set.title}</h3>
-                    <p className="text-xs text-gray-500">{set.cards.length} thẻ • {subjects.find(s => s.id === set.subjectId)?.name}</p>
+                    {/* Fix: Using subject_id */}
+                    <p className="text-xs text-gray-500">{set.cards.length} thẻ • {subjects.find(s => s.id === set.subject_id)?.name}</p>
                   </div>
                 </div>
                 <button 

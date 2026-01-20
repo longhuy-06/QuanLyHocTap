@@ -36,7 +36,8 @@ export const StudyDocuments: React.FC = () => {
   const filteredDocs = useMemo(() => {
     return documents.filter(doc => {
       const matchesSearch = doc.title.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesTab = activeTab === 'all' || doc.subjectId === activeTab;
+      // Fix: Using subject_id
+      const matchesTab = activeTab === 'all' || doc.subject_id === activeTab;
       return matchesSearch && matchesTab;
     });
   }, [documents, searchQuery, activeTab]);
@@ -67,16 +68,17 @@ export const StudyDocuments: React.FC = () => {
       if (!uploadData) return;
       
       setIsUploading(true);
+      // Fix: Using snake_case for StudyDocument properties to match interface
       const newDoc: StudyDocument = {
         id: Date.now().toString(),
         title: uploadData.title,
-        fileName: uploadData.file.name,
-        fileType: uploadData.file.type,
-        fileSize: uploadData.file.size,
-        fileData: uploadData.preview,
-        subjectId: uploadData.subjectId,
-        groupId: uploadData.groupId || undefined,
-        uploadDate: new Date().toLocaleDateString('vi-VN'),
+        file_name: uploadData.file.name,
+        file_type: uploadData.file.type,
+        file_size: uploadData.file.size,
+        file_data: uploadData.preview,
+        subject_id: uploadData.subjectId,
+        group_id: uploadData.groupId || undefined,
+        upload_date: new Date().toLocaleDateString('vi-VN'),
       };
       
       setTimeout(() => {
@@ -90,10 +92,11 @@ export const StudyDocuments: React.FC = () => {
 
   const handleAddGroup = () => {
       if (!newGroupName.trim()) return;
+      // Fix: Using subject_id for DocumentGroup to match interface
       const newGroup: DocumentGroup = {
           id: Date.now().toString(),
           name: newGroupName,
-          subjectId: currentSubjectId
+          subject_id: currentSubjectId
       };
       addDocumentGroup(newGroup);
       setNewGroupName('');
@@ -150,8 +153,9 @@ export const StudyDocuments: React.FC = () => {
       {/* Content Rendering */}
       <div className="space-y-10 animate-fade-in-up">
         {subjects.filter(s => activeTab === 'all' || s.id === activeTab).map(subject => {
-            const subjectGroups = documentGroups.filter(g => g.subjectId === subject.id);
-            const subjectDocs = filteredDocs.filter(d => d.subjectId === subject.id);
+            // Fix: Using subject_id
+            const subjectGroups = documentGroups.filter(g => g.subject_id === subject.id);
+            const subjectDocs = filteredDocs.filter(d => d.subject_id === subject.id);
             
             if (activeTab === 'all' && subjectDocs.length === 0) return null;
 
@@ -176,7 +180,8 @@ export const StudyDocuments: React.FC = () => {
                     {/* Groups (Folders) */}
                     <div className="space-y-4">
                         {subjectGroups.map(group => {
-                            const groupDocs = subjectDocs.filter(d => d.groupId === group.id);
+                            // Fix: Using group_id
+                            const groupDocs = subjectDocs.filter(d => d.group_id === group.id);
                             return (
                                 <FolderView 
                                     key={group.id} 
@@ -190,7 +195,8 @@ export const StudyDocuments: React.FC = () => {
                         })}
 
                         {/* General / Ungrouped Documents */}
-                        {subjectDocs.filter(d => !d.groupId).length > 0 && (
+                        {/* Fix: Using group_id */}
+                        {subjectDocs.filter(d => !d.group_id).length > 0 && (
                             <div className="space-y-3">
                                 <div className="flex items-center justify-between px-2">
                                     <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
@@ -205,7 +211,8 @@ export const StudyDocuments: React.FC = () => {
                                     </button>
                                 </div>
                                 <div className="grid grid-cols-1 gap-3">
-                                    {subjectDocs.filter(d => !d.groupId).map(doc => (
+                                    {/* Fix: Using group_id */}
+                                    {subjectDocs.filter(d => !d.group_id).map(doc => (
                                         <DocumentCard key={doc.id} doc={doc} subject={subject} onDelete={deleteDocument} />
                                     ))}
                                 </div>
@@ -306,7 +313,7 @@ export const StudyDocuments: React.FC = () => {
                               >
                                   Chung
                               </button>
-                              {documentGroups.filter(g => g.subjectId === uploadData.subjectId).map(g => (
+                              {documentGroups.filter(g => g.subject_id === uploadData.subjectId).map(g => (
                                   <button
                                       key={g.id}
                                       onClick={() => setUploadData({...uploadData, groupId: g.id})}
@@ -407,20 +414,23 @@ const DocumentCard: React.FC<{ doc: StudyDocument; subject?: Subject; onDelete: 
         <div className="bg-white dark:bg-surface-dark p-3.5 rounded-2xl border border-gray-50 dark:border-gray-800 hover:border-primary/20 transition-all flex items-center justify-between group">
             <div className="flex items-center gap-3.5 min-w-0">
                 <div className="w-10 h-10 rounded-xl bg-gray-50 dark:bg-gray-800 flex items-center justify-center text-gray-400 group-hover:text-primary transition-colors">
-                    <span className="material-symbols-outlined text-[22px]">{getFileIcon(doc.fileType)}</span>
+                    {/* Fix: Using file_type */}
+                    <span className="material-symbols-outlined text-[22px]">{getFileIcon(doc.file_type)}</span>
                 </div>
                 <div className="flex-1 min-w-0">
                     <h3 className="text-sm font-black text-gray-900 dark:text-white truncate">{doc.title}</h3>
                     <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-tight">{doc.uploadDate}</span>
+                        {/* Fix: Using upload_date and file_name */}
+                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-tight">{doc.upload_date}</span>
                         <div className="w-0.5 h-0.5 rounded-full bg-gray-200"></div>
-                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-tight">{doc.fileName.split('.').pop()?.toUpperCase()}</span>
+                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-tight">{doc.file_name.split('.').pop()?.toUpperCase()}</span>
                     </div>
                 </div>
             </div>
 
             <div className="flex gap-1">
-                <a href={doc.fileData} download={doc.fileName} className="w-8 h-8 rounded-full flex items-center justify-center text-gray-300 hover:text-primary transition-colors">
+                {/* Fix: Using file_data and file_name */}
+                <a href={doc.file_data} download={doc.file_name} className="w-8 h-8 rounded-full flex items-center justify-center text-gray-300 hover:text-primary transition-colors">
                     <span className="material-symbols-outlined text-[18px]">download</span>
                 </a>
                 <button onClick={() => onDelete(doc.id)} className="w-8 h-8 rounded-full flex items-center justify-center text-gray-300 hover:text-red-500 transition-colors">

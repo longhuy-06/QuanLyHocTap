@@ -11,60 +11,64 @@ export enum Priority {
   LOW = 'Thấp',
 }
 
-// Added missing Task interface
 export interface Task {
   id: string;
+  user_id?: string;
   title: string;
-  subjectId: string;
+  subject_id: string;
   priority: Priority;
-  dueDate: string;
+  due_date: string;
   status: TaskStatus;
   completed: boolean;
   progress: number;
-  completedAt?: string;
+  completed_at?: string;
 }
 
 export interface Subject {
   id: string;
+  user_id?: string;
   name: string;
   color: string;
 }
 
 export interface DocumentGroup {
   id: string;
+  user_id?: string;
   name: string;
-  subjectId: string;
+  subject_id: string;
 }
 
 export interface StudyDocument {
   id: string;
+  user_id?: string;
   title: string;
-  fileName: string;
-  fileType: string;
-  fileSize: number;
-  fileData: string; // Base64
-  subjectId: string;
-  groupId?: string; // ID của nhóm (nếu có)
-  uploadDate: string;
+  file_name: string;
+  file_type: string;
+  file_size: number;
+  file_data: string; // Base64
+  subject_id: string;
+  group_id?: string;
+  upload_date: string;
 }
 
 export interface FlashcardSet {
   id: string;
+  user_id?: string;
   title: string;
-  subjectId: string;
+  subject_id: string;
   cards: {
     id: string;
     front: string;
     back: string;
   }[];
-  createdAt: string;
+  created_at: string;
 }
 
 export interface ChatMessage {
   id: string;
   role: 'user' | 'model';
   text: string;
-  timestamp: string; // Changed to string for persistent storage
+  timestamp: string;
   isError?: boolean;
 }
 
@@ -72,10 +76,10 @@ export interface UserProfile {
   id: string;
   name: string;
   email: string;
-  avatarUrl: string;
-  isPremium: boolean;
+  avatar_url: string;
+  is_premium: boolean;
   streak: number;
-  lastCompletedDate: string | null;
-  studySessions: Record<string, number>;
-  status?: string; // Ví dụ: "Sinh viên", "Lớp 12",...
+  last_completed_date: string | null;
+  study_sessions: Record<string, number>;
+  status?: string;
 }
