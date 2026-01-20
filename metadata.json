@@ -1,0 +1,7 @@
+{
+  "name": "Học Tập",
+  "description": "Người bạn đồng hành tri thức đa năng với AI Tutor, Kanban và Pomodoro.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
