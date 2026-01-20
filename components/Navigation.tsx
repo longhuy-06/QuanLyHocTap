@@ -10,7 +10,7 @@ export const Navigation: React.FC = () => {
 
   return (
     <nav className="fixed bottom-0 left-0 w-full z-50 glass-nav pb-safe">
-      <div className="flex items-center justify-around px-2 py-3 max-w-lg mx-auto">
+      <div className="flex items-center justify-around px-1 py-3 max-w-lg mx-auto">
         <NavButton 
           icon="home" 
           label="Trang chủ" 
@@ -49,10 +49,10 @@ export const Navigation: React.FC = () => {
         />
         
         <NavButton 
-          icon="person" 
-          label="Cá nhân" 
-          active={isActive('/settings')} 
-          onClick={() => navigate('/settings')} 
+          icon="folder" 
+          label="Tài liệu" 
+          active={isActive('/documents')} 
+          onClick={() => navigate('/documents')} 
         />
       </div>
     </nav>
@@ -62,7 +62,7 @@ export const Navigation: React.FC = () => {
 const NavButton: React.FC<{ icon: string; label: string; active: boolean; onClick: () => void }> = ({ icon, label, active, onClick }) => (
   <button 
     onClick={onClick}
-    className={`flex flex-col items-center justify-center p-2 rounded-xl transition-all gap-1 group min-w-[64px] ${active ? 'text-primary' : 'text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}
+    className={`flex flex-col items-center justify-center p-2 rounded-xl transition-all gap-1 group min-w-[60px] ${active ? 'text-primary' : 'text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}
   >
     <span className={`material-symbols-outlined text-[26px] transition-transform ${active ? 'fill-1 font-bold' : 'group-active:scale-90'}`}>{icon}</span>
     <span className={`text-[10px] font-bold ${active ? '' : 'opacity-70'}`}>{label}</span>

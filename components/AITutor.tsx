@@ -1,8 +1,11 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Chat, LiveServerMessage } from '@google/genai';
 import { createChatSession, sendMessageToGemini, connectLiveSession, createPcmBlob, generateSpeech, transcribeAudio } from '../services/geminiService';
 import { ChatMessage } from '../types';
 import { useDataStore } from '../lib/store/dataStore';
+import { useAuthStore } from '../lib/store/authStore';
+import { useNavigate } from 'react-router-dom';
 
 type Mode = 'chat' | 'live';
 
@@ -18,6 +21,8 @@ const pcmToAudioBuffer = (buffer: ArrayBuffer, ctx: AudioContext, sampleRate: nu
 };
 
 export const AITutor: React.FC = () => {
+  const navigate = useNavigate();
+  const { user } = useAuthStore();
   const { isOnline, chatMessages, addChatMessage, clearChatMessages } = useDataStore();
   const [mode, setMode] = useState<Mode>('chat');
   const [input, setInput] = useState('');
@@ -35,7 +40,6 @@ export const AITutor: React.FC = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // Audio Refs for controlling playback
   const audioContextRef = useRef<AudioContext | null>(null);
   const currentSourceRef = useRef<AudioBufferSourceNode | null>(null);
   
@@ -102,39 +106,28 @@ export const AITutor: React.FC = () => {
 
   const handleTTS = async (text: string, messageId: string) => {
       if (!isOnline) return;
-      
-      // Nếu đang phát chính tin nhắn này thì dừng lại
       if (playingMessageId === messageId) {
           stopCurrentTTS();
           return;
       }
-
-      // Dừng âm thanh cũ trước khi phát mới
       stopCurrentTTS();
-
       try {
           const cleanText = text.replace(/[*#_~`\[\]()]/g, '').replace(/\[.*?\]/g, '').replace(/\(.*?\)/g, '').trim();
           if (!cleanText) return;
-
           setPlayingMessageId(messageId);
           const audioBufferRaw = await generateSpeech(cleanText);
           const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
           if (!AudioCtxClass) return;
-          
           const ctx = new AudioCtxClass({ sampleRate: 24000 });
           audioContextRef.current = ctx;
           if (ctx.state === 'suspended') await ctx.resume();
-          
           const buffer = pcmToAudioBuffer(audioBufferRaw, ctx, 24000);
           const source = ctx.createBufferSource();
           currentSourceRef.current = source;
           source.buffer = buffer;
           source.connect(ctx.destination);
-          
           source.onended = () => {
-              if (playingMessageId === messageId) {
-                  setPlayingMessageId(null);
-              }
+              if (playingMessageId === messageId) setPlayingMessageId(null);
               source.disconnect();
               ctx.close().catch(() => {});
           };
@@ -152,20 +145,17 @@ export const AITutor: React.FC = () => {
     }
     const textToSend = overrideText || input;
     if ((!textToSend.trim() && !attachedFile) || isLoading) return;
-
     const userMsg: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
       text: textToSend,
       timestamp: new Date().toISOString()
     };
-
     addChatMessage(userMsg);
     setInput('');
     const currentFile = attachedFile;
     setAttachedFile(null);
     setIsLoading(true);
-
     try {
         if (chatSessionRef.current) {
             const fileToSend = currentFile ? { data: currentFile.data, mimeType: currentFile.mimeType } : undefined;
@@ -250,15 +240,12 @@ export const AITutor: React.FC = () => {
           nextStartTimeRef.current = 0;
           const outputNode = ctx.createGain();
           outputNode.connect(ctx.destination);
-          
           const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
           streamRef.current = stream;
-          
           const inputCtx = new AudioCtxClass({ sampleRate: 16000 });
           const source = inputCtx.createMediaStreamSource(stream);
           const processor = inputCtx.createScriptProcessor(4096, 1, 1);
           inputProcessorRef.current = processor;
-          
           const sessionPromise = connectLiveSession({
               onOpen: () => console.log("Live Open"),
               onMessage: async (msg: LiveServerMessage) => {
@@ -268,17 +255,14 @@ export const AITutor: React.FC = () => {
                       const len = binaryString.length;
                       const bytes = new Uint8Array(len);
                       for (let i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
-                      
                       const audioBuffer = pcmToAudioBuffer(bytes.buffer, ctx, 24000);
                       const sourceNode = ctx.createBufferSource();
                       sourceNode.buffer = audioBuffer;
                       sourceNode.connect(outputNode);
-                      
                       const currentTime = ctx.currentTime;
                       if (nextStartTimeRef.current < currentTime) nextStartTimeRef.current = currentTime;
                       sourceNode.start(nextStartTimeRef.current);
                       nextStartTimeRef.current += audioBuffer.duration;
-                      
                       setLiveVolume(Math.random() * 100);
                       setTimeout(() => setLiveVolume(0), audioBuffer.duration * 1000);
                   }
@@ -286,7 +270,6 @@ export const AITutor: React.FC = () => {
               onError: (e) => setIsLiveConnected(false),
               onClose: () => setIsLiveConnected(false)
           });
-          
           processor.onaudioprocess = (e) => {
               const inputData = e.inputBuffer.getChannelData(0);
               const pcmBlob = createPcmBlob(inputData);
@@ -296,7 +279,6 @@ export const AITutor: React.FC = () => {
                   }
               });
           };
-          
           source.connect(processor);
           processor.connect(inputCtx.destination);
       } catch (err) {
@@ -320,22 +302,26 @@ export const AITutor: React.FC = () => {
            <div className="absolute top-24 left-4 right-4 z-[60] animate-fade-in-up">
                <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 p-3 rounded-2xl flex items-center gap-3 shadow-lg backdrop-blur-md">
                    <span className="material-symbols-outlined text-amber-500">wifi_off</span>
-                   <p className="text-[11px] font-black text-amber-700 dark:text-amber-400 uppercase tracking-widest">Đang ở chế độ ngoại tuyến. Các tính năng AI bị tạm dừng.</p>
+                   <p className="text-[11px] font-black text-amber-700 dark:text-amber-400 uppercase tracking-widest">Đang ngoại tuyến.</p>
                </div>
            </div>
        )}
        
-       <div className="absolute top-0 left-0 w-full h-64 bg-gradient-to-b from-indigo-50/50 to-transparent dark:from-indigo-900/10 pointer-events-none"></div>
        <div className="absolute top-0 left-0 right-0 z-40 pt-safe px-4 pb-2 bg-white/80 dark:bg-[#141c24]/80 backdrop-blur-xl border-b border-white/50 dark:border-white/5">
-         <div className="flex items-center gap-3 max-w-lg mx-auto">
-            <button onClick={() => { if(confirm("Xóa lịch sử trò chuyện này?")) clearChatMessages(); }} className="p-2 text-gray-400 hover:text-red-500 transition-colors" title="Làm mới hội thoại">
-                <span className="material-symbols-outlined text-[20px]">delete_sweep</span>
+         <div className="flex items-center gap-4 max-w-lg mx-auto">
+            <button 
+                onClick={() => navigate('/settings')}
+                className="w-10 h-10 rounded-[18px] bg-primary overflow-hidden shadow-sm active:scale-90 transition-all shrink-0"
+            >
+                <img src={user?.avatar_url || "https://picsum.photos/200"} className="w-full h-full object-cover" alt="Profile" />
             </button>
             <div className="flex-1 flex justify-center p-1 bg-gray-100 dark:bg-gray-800 rounded-xl">
-                <button onClick={() => setMode('chat')} className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${mode === 'chat' ? 'bg-white dark:bg-gray-700 shadow-sm text-primary' : 'text-gray-500'}`}>Nhắn tin</button>
+                <button onClick={() => setMode('chat')} className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${mode === 'chat' ? 'bg-white dark:bg-gray-700 shadow-sm text-primary' : 'text-gray-500'}`}>Huy Long</button>
                 <button onClick={() => setMode('live')} className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${mode === 'live' ? 'bg-white dark:bg-gray-700 shadow-sm text-red-500' : 'text-gray-500'}`}>Live</button>
             </div>
-            <div className="w-10"></div>
+            <button onClick={() => { if(confirm("Xóa lịch sử trò chuyện?")) clearChatMessages(); }} className="p-2 text-gray-400 hover:text-red-500">
+                <span className="material-symbols-outlined text-[20px]">delete_sweep</span>
+            </button>
          </div>
        </div>
 
@@ -343,6 +329,12 @@ export const AITutor: React.FC = () => {
            {mode === 'chat' && (
                <>
                 <div ref={scrollRef} className="h-full overflow-y-auto px-4 pb-4 space-y-6">
+                    {chatMessages.length === 0 && (
+                        <div className="flex flex-col items-center justify-center h-full text-center p-8 opacity-40">
+                            <span className="material-symbols-outlined text-[48px] mb-4">forum</span>
+                            <p className="text-sm font-bold uppercase tracking-widest">Hỏi Huy Long về bài tập của bạn</p>
+                        </div>
+                    )}
                     {chatMessages.map((msg) => (
                         <div key={msg.id} className={`flex w-full ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                             <div className={`flex max-w-[85%] ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'} items-end gap-2`}>
@@ -352,7 +344,7 @@ export const AITutor: React.FC = () => {
                                             <span className="material-symbols-outlined text-[20px] font-bold">menu_book</span>
                                         </div>
                                     ) : (
-                                        <div className="h-9 w-9 rounded-xl bg-gray-200 bg-cover bg-center border-2 border-white dark:border-gray-800 shadow-sm" style={{backgroundImage: "url('https://picsum.photos/200')"}}></div>
+                                        <div className="h-9 w-9 rounded-xl bg-gray-200 bg-cover bg-center border-2 border-white dark:border-gray-800 shadow-sm" style={{backgroundImage: `url('${user?.avatar_url || "https://picsum.photos/200"}')`}}></div>
                                     )}
                                 </div>
                                 <div className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
@@ -367,7 +359,6 @@ export const AITutor: React.FC = () => {
                                             <span className="material-symbols-outlined text-[18px]">
                                                 {playingMessageId === msg.id ? 'stop_circle' : 'volume_up'}
                                             </span>
-                                            {playingMessageId === msg.id && "Đang phát..."}
                                         </button>
                                     )}
                                 </div>
@@ -378,7 +369,6 @@ export const AITutor: React.FC = () => {
                         <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce"></span>
                         <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]"></span>
                         <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-                        {isRecording ? "Huy Long đang nghe..." : "Huy Long đang trả lời..."}
                     </div>}
                 </div>
                 {isOnline && (
@@ -386,24 +376,9 @@ export const AITutor: React.FC = () => {
                         <button onClick={() => setUseThinking(!useThinking)} className={`p-2.5 rounded-2xl shadow-float transition-all active:scale-90 ${useThinking ? 'bg-blue-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-400'}`} title="Suy nghĩ sâu">
                             <span className="material-symbols-outlined text-[20px]">psychology</span>
                         </button>
-                        <div className="relative">
-                            <button 
-                                onMouseEnter={() => setShowSearchInfo(true)}
-                                onMouseLeave={() => setShowSearchInfo(false)}
-                                onClick={() => { setUseSearch(!useSearch); setShowSearchInfo(true); setTimeout(() => setShowSearchInfo(false), 3000); }} 
-                                className={`p-2.5 rounded-2xl shadow-float transition-all active:scale-90 ${useSearch ? 'bg-emerald-500 text-white' : 'bg-white dark:bg-gray-800 text-gray-400'}`} 
-                                title="Google Search"
-                            >
-                                <span className="material-symbols-outlined text-[20px]">travel_explore</span>
-                            </button>
-                            {showSearchInfo && (
-                                <div className="absolute right-full mr-3 top-0 w-48 p-3 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-emerald-100 dark:border-emerald-900/30 animate-fade-in-up z-50">
-                                    <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest mb-1">Tìm kiếm thông minh</p>
-                                    <p className="text-[11px] text-gray-500 dark:text-gray-300 leading-relaxed font-medium">Huy Long sẽ truy cập Internet để lấy thông tin mới nhất và trích dẫn nguồn uy tín cho bạn.</p>
-                                    <div className="absolute top-4 -right-1.5 w-3 h-3 bg-white dark:bg-gray-800 border-t border-r border-emerald-100 dark:border-emerald-900/30 rotate-45"></div>
-                                </div>
-                            )}
-                        </div>
+                        <button onClick={() => { setUseSearch(!useSearch); setShowSearchInfo(true); setTimeout(() => setShowSearchInfo(false), 2000); }} className={`p-2.5 rounded-2xl shadow-float transition-all active:scale-90 ${useSearch ? 'bg-emerald-500 text-white' : 'bg-white dark:bg-gray-800 text-gray-400'}`} title="Google Search">
+                            <span className="material-symbols-outlined text-[20px]">travel_explore</span>
+                        </button>
                     </div>
                 )}
                 <div className="absolute bottom-28 left-4 right-4 z-30">
@@ -413,11 +388,11 @@ export const AITutor: React.FC = () => {
                             <button onClick={() => setAttachedFile(null)} className="text-red-500 p-1"><span className="material-symbols-outlined text-[18px]">close</span></button>
                         </div>
                     )}
-                    <div className={`bg-white dark:bg-[#141c24] p-2 rounded-[28px] shadow-float border border-gray-100 dark:border-gray-700 flex items-center gap-2 ${!isOnline ? 'opacity-50 pointer-events-none' : ''}`}>
+                    <div className={`bg-white dark:bg-[#141c24] p-2 rounded-[28px] shadow-float border border-gray-100 dark:border-gray-700 flex items-center gap-2 ${!isOnline ? 'opacity-50' : ''}`}>
                          <button onClick={() => fileInputRef.current?.click()} className="p-2.5 text-gray-400 hover:text-primary transition-colors"><span className="material-symbols-outlined">image</span></button>
                          <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileSelect} />
                          <button onClick={toggleRecording} className={`p-2.5 transition-all rounded-full ${isRecording ? 'text-white bg-red-500 animate-pulse' : 'text-gray-400 hover:text-primary'}`}><span className="material-symbols-outlined">{isRecording ? 'stop' : 'mic'}</span></button>
-                         <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSend()} placeholder={!isOnline ? "Đang ngoại tuyến..." : (isRecording ? "Huy Long đang nghe..." : "Hỏi Huy Long về bài tập...")} className="flex-1 bg-transparent border-none focus:ring-0 text-sm py-2" disabled={isRecording || !isOnline} />
+                         <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSend()} placeholder={isRecording ? "Đang lắng nghe..." : "Hỏi Huy Long..."} className="flex-1 bg-transparent border-none focus:ring-0 text-sm py-2" disabled={isRecording || !isOnline} />
                          <button onClick={() => handleSend()} disabled={isLoading || isRecording || !isOnline} className="p-3 bg-primary text-white rounded-2xl shadow-lg shadow-primary/20 active:scale-90 transition-all disabled:bg-gray-300"><span className="material-symbols-outlined font-bold">send</span></button>
                     </div>
                 </div>
@@ -432,11 +407,11 @@ export const AITutor: React.FC = () => {
                        </div>
                    </div>
                    <div className="mt-10 space-y-2">
-                        <h2 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">{!isOnline ? "Mất kết nối mạng" : (isLiveConnected ? "Huy Long đang lắng nghe..." : "Huy Long Live")}</h2>
-                        <p className="text-sm text-gray-400 font-bold uppercase tracking-widest">{!isOnline ? "Vui lòng kiểm tra lại đường truyền" : "Trò chuyện trực tiếp bằng giọng nói"}</p>
+                        <h2 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">{isLiveConnected ? "Huy Long đang nghe..." : "Huy Long Live"}</h2>
+                        <p className="text-sm text-gray-400 font-bold uppercase tracking-widest">Trò chuyện trực tiếp bằng giọng nói</p>
                    </div>
                    <button onClick={toggleLive} disabled={!isOnline} className={`mt-12 px-10 py-5 rounded-[24px] font-black tracking-widest uppercase text-xs transition-all shadow-xl active:scale-95 disabled:opacity-50 ${isLiveConnected ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900' : 'bg-white dark:bg-gray-800 text-primary border-2 border-primary/20 hover:border-primary/50' }`}>
-                        {isLiveConnected ? "KẾT THÚC CUỘC HỘI THOẠI" : "BẮT ĐẦU TRÒ CHUYỆN"}
+                        {isLiveConnected ? "DỪNG TRÒ CHUYỆN" : "BẮT ĐẦU LIVE"}
                    </button>
                </div>
            )}

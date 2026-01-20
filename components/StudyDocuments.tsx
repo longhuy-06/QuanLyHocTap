@@ -1,8 +1,9 @@
 
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDataStore } from '../lib/store/dataStore';
 import { StudyDocument, Subject, DocumentGroup } from '../types';
+import { useAuthStore } from '../lib/store/authStore';
 
 interface UploadModalData {
     file: File;
@@ -14,6 +15,7 @@ interface UploadModalData {
 
 export const StudyDocuments: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuthStore();
   const { documents, subjects, documentGroups, addDocument, deleteDocument, addDocumentGroup, deleteDocumentGroup } = useDataStore();
   
   const [activeTab, setActiveTab] = useState('all');
@@ -24,10 +26,8 @@ export const StudyDocuments: React.FC = () => {
   const [isAddingGroup, setIsAddingGroup] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
-  // Ref to track which group is being targeted for the next upload
   const targetGroupIdRef = useRef<string>('');
 
-  // Lấy môn học hiện tại
   const currentSubjectId = useMemo(() => {
       if (activeTab === 'all') return subjects[0]?.id || 'chinese';
       return activeTab;
@@ -36,7 +36,6 @@ export const StudyDocuments: React.FC = () => {
   const filteredDocs = useMemo(() => {
     return documents.filter(doc => {
       const matchesSearch = doc.title.toLowerCase().includes(searchQuery.toLowerCase());
-      // Fix: Using subject_id
       const matchesTab = activeTab === 'all' || doc.subject_id === activeTab;
       return matchesSearch && matchesTab;
     });
@@ -58,7 +57,7 @@ export const StudyDocuments: React.FC = () => {
           preview: reader.result as string,
           title: file.name.split('.')[0],
           subjectId: currentSubjectId,
-          groupId: targetGroupIdRef.current // Use the cached target group ID
+          groupId: targetGroupIdRef.current 
       });
     };
     reader.readAsDataURL(file);
@@ -68,7 +67,6 @@ export const StudyDocuments: React.FC = () => {
       if (!uploadData) return;
       
       setIsUploading(true);
-      // Fix: Using snake_case for StudyDocument properties to match interface
       const newDoc: StudyDocument = {
         id: Date.now().toString(),
         title: uploadData.title,
@@ -92,7 +90,6 @@ export const StudyDocuments: React.FC = () => {
 
   const handleAddGroup = () => {
       if (!newGroupName.trim()) return;
-      // Fix: Using subject_id for DocumentGroup to match interface
       const newGroup: DocumentGroup = {
           id: Date.now().toString(),
           name: newGroupName,
@@ -108,17 +105,22 @@ export const StudyDocuments: React.FC = () => {
       <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileChange} />
 
       <header className="flex items-center justify-between mb-6 animate-fade-in-up">
-        <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-gray-400">
-          <span className="material-symbols-outlined">arrow_back_ios_new</span>
-        </button>
-        <div className="flex flex-col items-center flex-1">
-            <h1 className="text-xl font-black text-gray-900 dark:text-white">Kho tài liệu</h1>
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Hệ thống lưu trữ</p>
+        <div className="flex items-center gap-4">
+             <button 
+                onClick={() => navigate('/settings')}
+                className="w-12 h-12 rounded-[20px] bg-primary overflow-hidden shadow-md active:scale-90 transition-all border border-white/20"
+             >
+                <img src={user?.avatar_url || "https://picsum.photos/200"} className="w-full h-full object-cover" alt="Profile" />
+             </button>
+             <div>
+                <h1 className="text-xl font-black text-gray-900 dark:text-white">Tài liệu</h1>
+             </div>
         </div>
-        <div className="w-10"></div> {/* Spacer to keep title centered */}
+        <button onClick={() => navigate(-1)} className="p-2 text-gray-400">
+          <span className="material-symbols-outlined">close</span>
+        </button>
       </header>
 
-      {/* Search Bar */}
       <div className="relative mb-8 animate-fade-in-up">
         <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">search</span>
         <input 
@@ -126,11 +128,15 @@ export const StudyDocuments: React.FC = () => {
           placeholder="Tìm tên tài liệu..." 
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-12 pr-4 py-4 bg-white dark:bg-surface-dark border-none rounded-2xl shadow-soft text-sm focus:ring-2 focus:ring-primary/50"
+          className="w-full pl-12 pr-4 py-4 bg-white dark:bg-surface-dark border-none rounded-2xl shadow-soft text-sm focus:ring-2 focus:ring-primary/50 font-bold"
         />
+        {searchQuery && (
+            <button onClick={() => setSearchQuery('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300">
+                <span className="material-symbols-outlined text-[18px]">cancel</span>
+            </button>
+        )}
       </div>
 
-      {/* Tab Filter */}
       <div className="flex gap-2 overflow-x-auto hide-scrollbar mb-8 pb-1 animate-fade-in-up">
         <button 
           onClick={() => setActiveTab('all')}
@@ -150,10 +156,8 @@ export const StudyDocuments: React.FC = () => {
         ))}
       </div>
 
-      {/* Content Rendering */}
       <div className="space-y-10 animate-fade-in-up">
         {subjects.filter(s => activeTab === 'all' || s.id === activeTab).map(subject => {
-            // Fix: Using subject_id
             const subjectGroups = documentGroups.filter(g => g.subject_id === subject.id);
             const subjectDocs = filteredDocs.filter(d => d.subject_id === subject.id);
             
@@ -177,16 +181,15 @@ export const StudyDocuments: React.FC = () => {
                         )}
                     </div>
 
-                    {/* Groups (Folders) */}
                     <div className="space-y-4">
                         {subjectGroups.map(group => {
-                            // Fix: Using group_id
                             const groupDocs = subjectDocs.filter(d => d.group_id === group.id);
                             return (
                                 <FolderView 
                                     key={group.id} 
                                     group={group} 
                                     docs={groupDocs} 
+                                    searchQuery={searchQuery}
                                     onDeleteGroup={() => deleteDocumentGroup(group.id)}
                                     onDeleteDoc={deleteDocument}
                                     onAddDoc={() => triggerUpload(group.id)}
@@ -194,8 +197,6 @@ export const StudyDocuments: React.FC = () => {
                             );
                         })}
 
-                        {/* General / Ungrouped Documents */}
-                        {/* Fix: Using group_id */}
                         {subjectDocs.filter(d => !d.group_id).length > 0 && (
                             <div className="space-y-3">
                                 <div className="flex items-center justify-between px-2">
@@ -211,24 +212,10 @@ export const StudyDocuments: React.FC = () => {
                                     </button>
                                 </div>
                                 <div className="grid grid-cols-1 gap-3">
-                                    {/* Fix: Using group_id */}
                                     {subjectDocs.filter(d => !d.group_id).map(doc => (
                                         <DocumentCard key={doc.id} doc={doc} subject={subject} onDelete={deleteDocument} />
                                     ))}
                                 </div>
-                            </div>
-                        )}
-
-                        {subjectDocs.length === 0 && (
-                            <div className="p-10 text-center bg-gray-50/50 dark:bg-gray-800/30 rounded-[32px] border border-dashed border-gray-200 dark:border-gray-700">
-                                <span className="material-symbols-outlined text-4xl text-gray-100 mb-2">folder_off</span>
-                                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Chưa có tài liệu</p>
-                                <button 
-                                    onClick={() => triggerUpload('')}
-                                    className="mt-4 px-4 py-2 bg-primary text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-primary/20"
-                                >
-                                    Thêm tài liệu đầu tiên
-                                </button>
                             </div>
                         )}
                     </div>
@@ -237,28 +224,26 @@ export const StudyDocuments: React.FC = () => {
         })}
       </div>
 
-      {/* Modal: Thêm nhóm mới */}
       {isAddingGroup && (
            <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in-up">
                 <div className="bg-white dark:bg-surface-dark w-full max-w-xs p-6 rounded-[32px] shadow-2xl space-y-4">
-                    <h3 className="text-lg font-black text-gray-900 dark:text-white text-center">Tên nhóm tài liệu mới</h3>
+                    <h3 className="text-lg font-black text-gray-900 dark:text-white text-center">Tên nhóm mới</h3>
                     <input 
                         type="text"
                         autoFocus
                         value={newGroupName}
                         onChange={e => setNewGroupName(e.target.value)}
-                        placeholder="VD: Tài liệu đọc, Nghe..."
+                        placeholder="VD: Tài liệu đọc..."
                         className="w-full bg-gray-50 dark:bg-gray-800 border-none rounded-xl p-3.5 text-sm font-bold focus:ring-2 focus:ring-primary/50"
                     />
                     <div className="grid grid-cols-2 gap-3">
                         <button onClick={() => setIsAddingGroup(false)} className="py-3 rounded-xl font-bold text-gray-400 bg-gray-100 dark:bg-gray-800 uppercase text-[10px] tracking-widest">Hủy</button>
-                        <button onClick={handleAddGroup} className="py-3 rounded-xl font-bold text-white bg-primary shadow-lg shadow-primary/30 uppercase text-[10px] tracking-widest">Tạo ngay</button>
+                        <button onClick={handleAddGroup} className="py-3 rounded-xl font-bold text-white bg-primary shadow-lg shadow-primary/30 uppercase text-[10px] tracking-widest">Tạo</button>
                     </div>
                 </div>
            </div>
       )}
 
-      {/* Modal: Upload & Chỉnh sửa */}
       {uploadData && (
           <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4 animate-fade-in-up">
               <div className="bg-white dark:bg-surface-dark w-full sm:max-w-md p-6 rounded-t-[40px] sm:rounded-[40px] shadow-2xl space-y-6">
@@ -279,50 +264,13 @@ export const StudyDocuments: React.FC = () => {
                       </div>
 
                       <div className="space-y-1.5">
-                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Tên mục hiển thị</label>
+                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Tên mục</label>
                           <input 
                               type="text"
                               value={uploadData.title}
                               onChange={e => setUploadData({...uploadData, title: e.target.value})}
                               className="w-full bg-gray-50 dark:bg-gray-800 border-none rounded-2xl p-4 text-sm font-black text-gray-900 dark:text-white focus:ring-2 focus:ring-primary/50"
-                              placeholder="Nhập tên tài liệu..."
                           />
-                      </div>
-
-                      <div className="space-y-1.5">
-                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Chọn Môn học</label>
-                          <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
-                              {subjects.map(s => (
-                                  <button
-                                      key={s.id}
-                                      onClick={() => setUploadData({...uploadData, subjectId: s.id, groupId: ''})}
-                                      className={`px-4 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap border ${uploadData.subjectId === s.id ? 'bg-primary border-primary text-white shadow-md' : 'bg-gray-50 dark:bg-gray-800 border-transparent text-gray-400'}`}
-                                  >
-                                      {s.name}
-                                  </button>
-                              ))}
-                          </div>
-                      </div>
-
-                      <div className="space-y-1.5">
-                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Chọn Nhóm phân loại</label>
-                          <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
-                              <button
-                                  onClick={() => setUploadData({...uploadData, groupId: ''})}
-                                  className={`px-4 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap border ${uploadData.groupId === '' ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-transparent' : 'bg-gray-50 dark:bg-gray-800 border-transparent text-gray-400'}`}
-                              >
-                                  Chung
-                              </button>
-                              {documentGroups.filter(g => g.subject_id === uploadData.subjectId).map(g => (
-                                  <button
-                                      key={g.id}
-                                      onClick={() => setUploadData({...uploadData, groupId: g.id})}
-                                      className={`px-4 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap border ${uploadData.groupId === g.id ? 'bg-primary border-primary text-white shadow-md' : 'bg-gray-50 dark:bg-gray-800 border-transparent text-gray-400'}`}
-                                  >
-                                      {g.name}
-                                  </button>
-                              ))}
-                          </div>
                       </div>
                   </div>
 
@@ -332,7 +280,7 @@ export const StudyDocuments: React.FC = () => {
                         disabled={isUploading || !uploadData.title}
                         className="w-full h-14 bg-primary text-white rounded-[24px] font-black uppercase tracking-widest text-xs shadow-xl shadow-primary/30 active:scale-95 transition-all flex items-center justify-center gap-3"
                     >
-                        {isUploading ? <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span> : "Lưu vào kho tài liệu"}
+                        {isUploading ? <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span> : "Lưu tài liệu"}
                     </button>
                   </div>
               </div>
@@ -342,8 +290,16 @@ export const StudyDocuments: React.FC = () => {
   );
 };
 
-const FolderView: React.FC<{ group: DocumentGroup, docs: StudyDocument[], onDeleteGroup: () => void, onDeleteDoc: (id: string) => void, onAddDoc: () => void }> = ({ group, docs, onDeleteGroup, onDeleteDoc, onAddDoc }) => {
+const FolderView: React.FC<{ group: DocumentGroup, docs: StudyDocument[], searchQuery: string, onDeleteGroup: () => void, onDeleteDoc: (id: string) => void, onAddDoc: () => void }> = ({ group, docs, searchQuery, onDeleteGroup, onDeleteDoc, onAddDoc }) => {
     const [isOpen, setIsOpen] = useState(false);
+
+    // Tự động mở thư mục nếu đang có tìm kiếm và thư mục có chứa kết quả
+    useEffect(() => {
+        if (searchQuery.trim() && docs.length > 0) {
+            setIsOpen(true);
+        }
+    }, [searchQuery, docs.length]);
+
     return (
         <div className={`rounded-[32px] overflow-hidden transition-all duration-300 ${isOpen ? 'bg-white dark:bg-surface-dark shadow-soft ring-1 ring-gray-100 dark:ring-gray-800' : 'bg-gray-50/50 dark:bg-gray-800/20'}`}>
             <div 
@@ -363,7 +319,6 @@ const FolderView: React.FC<{ group: DocumentGroup, docs: StudyDocument[], onDele
                     <button 
                         onClick={(e) => { e.stopPropagation(); onAddDoc(); }} 
                         className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center hover:bg-primary hover:text-white transition-all mr-1"
-                        title="Thêm tài liệu vào nhóm này"
                     >
                         <span className="material-symbols-outlined text-[18px] font-bold">add</span>
                     </button>
@@ -381,12 +336,6 @@ const FolderView: React.FC<{ group: DocumentGroup, docs: StudyDocument[], onDele
                     ) : (
                         <div className="py-6 text-center text-[10px] font-bold text-gray-400 uppercase tracking-widest opacity-50 flex flex-col items-center gap-2">
                             Thư mục trống
-                            <button 
-                                onClick={(e) => { e.stopPropagation(); onAddDoc(); }}
-                                className="text-primary hover:underline text-[9px]"
-                            >
-                                THÊM NGAY
-                            </button>
                         </div>
                     )}
                 </div>
@@ -403,33 +352,21 @@ const DocumentCard: React.FC<{ doc: StudyDocument; subject?: Subject; onDelete: 
         return 'insert_drive_file';
     };
 
-    const formatSize = (bytes: number) => {
-        if (bytes === 0) return '0 B';
-        const k = 1024;
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, 1024)).toFixed(1)) + ' MB'; // Simpler MB focus
-    };
-
     return (
         <div className="bg-white dark:bg-surface-dark p-3.5 rounded-2xl border border-gray-50 dark:border-gray-800 hover:border-primary/20 transition-all flex items-center justify-between group">
             <div className="flex items-center gap-3.5 min-w-0">
                 <div className="w-10 h-10 rounded-xl bg-gray-50 dark:bg-gray-800 flex items-center justify-center text-gray-400 group-hover:text-primary transition-colors">
-                    {/* Fix: Using file_type */}
                     <span className="material-symbols-outlined text-[22px]">{getFileIcon(doc.file_type)}</span>
                 </div>
                 <div className="flex-1 min-w-0">
                     <h3 className="text-sm font-black text-gray-900 dark:text-white truncate">{doc.title}</h3>
                     <div className="flex items-center gap-2 mt-0.5">
-                        {/* Fix: Using upload_date and file_name */}
                         <span className="text-[9px] font-bold text-gray-400 uppercase tracking-tight">{doc.upload_date}</span>
-                        <div className="w-0.5 h-0.5 rounded-full bg-gray-200"></div>
-                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-tight">{doc.file_name.split('.').pop()?.toUpperCase()}</span>
                     </div>
                 </div>
             </div>
 
             <div className="flex gap-1">
-                {/* Fix: Using file_data and file_name */}
                 <a href={doc.file_data} download={doc.file_name} className="w-8 h-8 rounded-full flex items-center justify-center text-gray-300 hover:text-primary transition-colors">
                     <span className="material-symbols-outlined text-[18px]">download</span>
                 </a>

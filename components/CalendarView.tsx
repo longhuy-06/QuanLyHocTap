@@ -76,7 +76,6 @@ export const CalendarView: React.FC = () => {
         });
     }
 
-    // Báo trước cho ngày mai
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     const tomorrowTasks = tasks.filter(t => {
@@ -88,7 +87,7 @@ export const CalendarView: React.FC = () => {
         alerts.push({
             id: 'upcoming-alert',
             title: 'Báo trước cho ngày mai',
-            message: `Bạn có ${tomorrowTasks.length} nhiệm vụ cần giải quyết vào ngày mai.`,
+            message: `Bạn có ${tomorrowTasks.length} nhiệm vụ ngày mai.`,
             time: 'Sắp tới',
             read: false,
             type: 'alert'
@@ -109,11 +108,14 @@ export const CalendarView: React.FC = () => {
   return (
     <div className="pb-32 pt-4 px-4 min-h-screen bg-background-light dark:bg-background-dark">
        <div className="flex items-center justify-between mb-8 sticky top-0 z-20 bg-background-light/90 dark:bg-background-dark/90 backdrop-blur-xl py-3 px-1">
-          <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-primary flex items-center justify-center text-white font-black shadow-glow">
-                  <span className="material-symbols-outlined text-[24px]">calendar_today</span>
-              </div>
-              <h1 className="text-xl font-black text-gray-900 dark:text-white tracking-tight">Học Tập</h1>
+          <div className="flex items-center gap-4">
+              <button 
+                onClick={() => navigate('/settings')}
+                className="w-12 h-12 rounded-[20px] bg-primary overflow-hidden shadow-md active:scale-90 transition-all border border-white/20"
+              >
+                  <img src={user?.avatar_url || "https://picsum.photos/200"} className="w-full h-full object-cover" alt="Profile" />
+              </button>
+              <h1 className="text-xl font-black text-gray-900 dark:text-white tracking-tight">Lịch học</h1>
           </div>
 
           <div className="flex gap-4 relative" ref={notificationRef}>
@@ -121,9 +123,6 @@ export const CalendarView: React.FC = () => {
                   <span className="material-symbols-outlined text-[26px]">notifications</span>
                   {unreadCount > 0 && <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-background-light dark:border-background-dark animate-pulse"></span>}
               </button>
-               <div onClick={() => navigate('/settings')} className="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden border-2 border-white dark:border-gray-800 shadow-sm cursor-pointer">
-                  <img src={user?.avatar_url || "https://picsum.photos/200?study"} alt="AVT" className="w-full h-full object-cover" />
-               </div>
 
                {showNotifications && (
                    <div className="absolute right-0 top-14 w-80 bg-white dark:bg-surface-dark rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-700 p-2 z-50 animate-fade-in-up origin-top-right overflow-hidden">
@@ -167,7 +166,7 @@ export const CalendarView: React.FC = () => {
           <div className="flex items-center justify-between mb-8 px-2">
              <button onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1))} className="w-10 h-10 rounded-full hover:bg-gray-50 flex items-center justify-center transition-colors"><span className="material-symbols-outlined text-gray-400">chevron_left</span></button>
              <span className="text-lg font-black text-gray-900 dark:text-white">
-                 {`Tháng ${viewDate.getMonth() + 1}, ${viewDate.getFullYear()}`}
+                 Tháng {viewDate.getMonth() + 1}, {viewDate.getFullYear()}
              </span>
              <button onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1))} className="w-10 h-10 rounded-full hover:bg-gray-50 flex items-center justify-center transition-colors"><span className="material-symbols-outlined text-gray-400">chevron_right</span></button>
           </div>
@@ -196,11 +195,11 @@ export const CalendarView: React.FC = () => {
        <div className="space-y-4 px-2">
           <div className="flex items-center gap-3 mb-2">
               <div className="w-1.5 h-6 bg-primary rounded-full"></div>
-              <h2 className="text-xl font-black text-gray-900 dark:text-white">Nhiệm vụ {selectedDate.getDate()}/{selectedDate.getMonth() + 1}</h2>
+              <h2 className="text-lg font-black text-gray-900 dark:text-white">Nhiệm vụ {selectedDate.getDate()}/{selectedDate.getMonth() + 1}</h2>
           </div>
           {selectedDateTasks.length === 0 ? (
               <div className="py-12 text-center bg-gray-50/50 dark:bg-gray-800/30 rounded-[32px] border border-dashed border-gray-200">
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Trống lịch học</p>
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Trống lịch</p>
               </div>
           ) : (
               selectedDateTasks.map(task => (
@@ -208,16 +207,16 @@ export const CalendarView: React.FC = () => {
                     <button onClick={() => updateTaskStatus(task.id, task.status === TaskStatus.DONE ? TaskStatus.TODO : TaskStatus.DONE)} className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all ${task.status === TaskStatus.DONE ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-gray-200'}`}>{task.status === TaskStatus.DONE && <span className="material-symbols-outlined text-sm font-bold">check</span>}</button>
                     <div className="flex-1 min-w-0">
                         <h3 className={`text-[15px] font-black truncate ${task.status === TaskStatus.DONE ? 'text-gray-400 line-through' : ''}`}>{task.title}</h3>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">{task.due_date?.split(' ')[1] || '23:59'}</p>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">{task.due_date?.split(' ')[1] || 'Cả ngày'}</p>
                     </div>
                     <div className="flex items-center gap-2">
                         <button 
                             onClick={(e) => { e.stopPropagation(); handleDeleteTask(task.id); }}
-                            className="p-2 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="p-2 text-gray-300 hover:text-red-500 transition-colors"
                         >
                             <span className="material-symbols-outlined text-[20px]">delete</span>
                         </button>
-                        <div className="w-2 h-10 rounded-full" style={{ backgroundColor: subjects.find(s => s.id === task.subject_id)?.color || '#eee' }}></div>
+                        <div className="w-1.5 h-10 rounded-full" style={{ backgroundColor: subjects.find(s => s.id === task.subject_id)?.color || '#eee' }}></div>
                     </div>
                 </div>
               ))

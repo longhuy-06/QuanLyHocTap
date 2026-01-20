@@ -4,8 +4,12 @@ import { TaskStatus, Priority, Task, Subject } from '../types';
 import { useDataStore } from '../lib/store/dataStore';
 import { useForm } from 'react-hook-form';
 import { CalendarPicker } from './CalendarPicker';
+import { useNavigate } from 'react-router-dom';
+import { useAuthStore } from '../lib/store/authStore';
 
 export const Kanban: React.FC = () => {
+  const navigate = useNavigate();
+  const { user } = useAuthStore();
   const { subjects, tasks, updateTaskStatus, updateTaskProgress, updateTask, deleteTask, clearAllTasks } = useDataStore();
   const [activeSubject, setActiveSubject] = useState<string>('all');
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
@@ -50,28 +54,30 @@ export const Kanban: React.FC = () => {
 
   return (
     <div className="h-full flex flex-col w-full pb-32 pt-4 bg-background-light dark:bg-background-dark relative overflow-hidden">
-      <header className="flex flex-col px-5 py-4 shrink-0 gap-3">
-         <div className="flex items-center justify-between w-full">
-            <h1 className="text-gray-900 dark:text-white text-2xl font-black tracking-tight">Nhiệm vụ</h1>
-            <div className="flex gap-2">
-                {tasks.length > 0 && (
-                    <button onClick={() => setIsResetConfirmOpen(true)} className="flex size-11 items-center justify-center rounded-2xl bg-red-50 dark:bg-red-900/20 text-red-500 hover:bg-red-100 transition-all active:scale-90">
-                        <span className="material-symbols-outlined">delete_sweep</span>
-                    </button>
-                )}
-                <button onClick={() => setIsAddSubjectModalOpen(true)} className="flex size-11 items-center justify-center rounded-2xl bg-primary/10 text-primary hover:bg-primary/20 transition-all active:scale-90">
-                    <span className="material-symbols-outlined">library_add</span>
-                </button>
-            </div>
+      <header className="flex items-center px-5 py-4 shrink-0 gap-4">
+         <button 
+            onClick={() => navigate('/settings')}
+            className="w-12 h-12 rounded-[20px] bg-primary overflow-hidden shadow-md active:scale-90 transition-all shrink-0"
+         >
+            <img src={user?.avatar_url || "https://picsum.photos/200"} className="w-full h-full object-cover" alt="Profile" />
+         </button>
+         <div className="flex-1">
+            <h1 className="text-gray-900 dark:text-white text-xl font-black tracking-tight">Nhiệm vụ</h1>
          </div>
-         {overdueCount > 0 && (
-             <div className="w-full bg-red-50 dark:bg-red-900/20 rounded-2xl p-4 flex items-center gap-3 border border-red-100 dark:border-red-900/30 animate-pulse">
-                 <span className="material-symbols-outlined text-red-500 fill-1">warning</span>
-                 <p className="text-xs font-black text-red-600 dark:text-red-400 uppercase tracking-wider">Bạn đang có {overdueCount} việc quá hạn!</p>
-             </div>
-         )}
+         <div className="flex gap-2">
+            <button onClick={() => setIsAddSubjectModalOpen(true)} className="flex size-10 items-center justify-center rounded-2xl bg-primary/10 text-primary hover:bg-primary/20 transition-all active:scale-90">
+                <span className="material-symbols-outlined text-[20px]">library_add</span>
+            </button>
+         </div>
       </header>
       
+      {overdueCount > 0 && (
+          <div className="mx-5 mb-4 bg-red-50 dark:bg-red-900/20 rounded-2xl p-3 flex items-center gap-3 border border-red-100 dark:border-red-900/30">
+              <span className="material-symbols-outlined text-red-500 fill-1 text-[20px]">warning</span>
+              <p className="text-[10px] font-black text-red-600 dark:text-red-400 uppercase tracking-wider">Có {overdueCount} việc quá hạn!</p>
+          </div>
+      )}
+
       <div className="flex gap-3 px-5 pb-4 overflow-x-auto hide-scrollbar">
           <Chip active={activeSubject === 'all'} label="Tất cả" onClick={() => setActiveSubject('all')} />
           {subjects.map(s => <Chip key={s.id} active={activeSubject === s.id} label={s.name} color={s.color} onClick={() => setActiveSubject(s.id)} />)}
@@ -160,7 +166,7 @@ const Card: React.FC<any> = ({ task, subjectInfo, currentTime, showProgress, isD
                     </span>
                     <button 
                         onClick={(e) => { e.stopPropagation(); if(confirm("Xóa nhiệm vụ này?")) onDelete(task.id); }} 
-                        className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all active:scale-90"
+                        className="text-gray-300 hover:text-red-500 transition-all active:scale-90"
                     >
                         <span className="material-symbols-outlined text-base">delete</span>
                     </button>
@@ -186,7 +192,6 @@ const Card: React.FC<any> = ({ task, subjectInfo, currentTime, showProgress, isD
                         {task.due_date}
                     </div>
                     
-                    {/* Status Switcher Bar */}
                     <div className="flex bg-gray-50 dark:bg-gray-800 rounded-xl p-0.5 gap-0.5" onClick={e => e.stopPropagation()}>
                         <button 
                             onClick={() => onStatusChange(task.id, TaskStatus.TODO)}
