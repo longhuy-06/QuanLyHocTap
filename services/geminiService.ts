@@ -1,19 +1,30 @@
+
 import { GoogleGenAI, Chat, Modality, LiveServerMessage, Type } from "@google/genai";
 
 // Luôn khởi tạo với process.env.API_KEY
 const getAI = () => {
-  return new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const apiKey = process.env.API_KEY;
+  if (!apiKey || apiKey === 'undefined' || apiKey === '') {
+    console.warn("Gemini API Key is missing. Please check your environment variables.");
+    // Trả về một proxy object hoặc ném lỗi có kiểm soát thay vì để GoogleGenAI crash
+  }
+  return new GoogleGenAI({ apiKey: apiKey || 'MISSING_KEY' });
 };
 
 // Hàm hỗ trợ giải mã base64 (sử dụng thủ công theo hướng dẫn)
 function decodeBase64(base64: string) {
-  const binaryString = atob(base64);
-  const len = binaryString.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
+  try {
+    const binaryString = atob(base64);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    return bytes.buffer;
+  } catch (e) {
+    console.error("Base64 decode error", e);
+    return new ArrayBuffer(0);
   }
-  return bytes.buffer;
 }
 
 function encodeBase64(bytes: Uint8Array) {
@@ -27,27 +38,32 @@ function encodeBase64(bytes: Uint8Array) {
 
 // --- CHAT & TEXT & VISION ---
 
-export const createChatSession = (options: { enableThinking?: boolean, enableSearch?: boolean } = {}): Chat => {
-  const ai = getAI();
-  const model = (options.enableThinking || options.enableSearch) ? 'gemini-3-pro-preview' : 'gemini-3-flash-preview';
-  
-  const config: any = {
-    systemInstruction: `Bạn tên là Huy Long. Bạn là một gia sư AI thông minh, nhiệt tình.
-    Phong cách: Thân thiện, ngắn gọn, chuẩn xác. Luôn xưng hô là "mình" và "bạn".`,
-  };
+export const createChatSession = (options: { enableThinking?: boolean, enableSearch?: boolean } = {}): Chat | null => {
+  try {
+    const ai = getAI();
+    const model = (options.enableThinking || options.enableSearch) ? 'gemini-3-pro-preview' : 'gemini-3-flash-preview';
+    
+    const config: any = {
+      systemInstruction: `Bạn tên là Huy Long. Bạn là một gia sư AI thông minh, nhiệt tình.
+      Phong cách: Thân thiện, ngắn gọn, chuẩn xác. Luôn xưng hô là "mình" và "bạn".`,
+    };
 
-  if (options.enableThinking) {
-    config.thinkingConfig = { thinkingBudget: 32768 };
+    if (options.enableThinking) {
+      config.thinkingConfig = { thinkingBudget: 32768 };
+    }
+
+    if (options.enableSearch) {
+      config.tools = [{ googleSearch: {} }];
+    }
+
+    return ai.chats.create({
+      model: model,
+      config: config,
+    });
+  } catch (e) {
+    console.error("Failed to create chat session", e);
+    return null;
   }
-
-  if (options.enableSearch) {
-    config.tools = [{ googleSearch: {} }];
-  }
-
-  return ai.chats.create({
-    model: model,
-    config: config,
-  });
 };
 
 export const sendMessageToGemini = async (
@@ -55,6 +71,8 @@ export const sendMessageToGemini = async (
   message: string, 
   attachment?: { data: string; mimeType: string }
 ): Promise<{ text: string; grounding?: any }> => {
+  if (!chat) return { text: "Phiên làm việc AI chưa được khởi tạo. Vui lòng kiểm tra API Key." };
+  
   try {
     let response;
     if (attachment) {
@@ -74,9 +92,12 @@ export const sendMessageToGemini = async (
         text: response.text || "Huy Long đang suy nghĩ...",
         grounding: groundingChunks
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Gemini API Error:", error);
-    return { text: "Có lỗi xảy ra khi kết nối với Huy Long. Vui lòng thử lại!" };
+    if (error.message?.includes('API_KEY_INVALID')) {
+        return { text: "API Key không hợp lệ hoặc đã hết hạn. Vui lòng kiểm tra lại cấu hình Netlify." };
+    }
+    return { text: "Có lỗi xảy ra khi kết nối với Huy Long. Vui lòng thử lại sau vài giây!" };
   }
 };
 
@@ -85,11 +106,10 @@ export const sendMessageToGemini = async (
 export const generateSpeech = async (text: string): Promise<ArrayBuffer> => {
   const ai = getAI();
   
-  // Clean text: Loại bỏ ký tự markdown và ký tự đặc biệt có thể gây lỗi 500 cho API TTS
   const cleanText = text
-    .replace(/[*#_~`\[\]()]/g, '') // Xóa ký tự định dạng markdown
-    .replace(/[^\w\s\d\p{L}\p{P}]/gu, '') // Chỉ giữ lại chữ cái, số, dấu câu
-    .substring(0, 500) // Giới hạn độ dài để ổn định hơn
+    .replace(/[*#_~`\[\]()]/g, '')
+    .replace(/[^\w\s\d\p{L}\p{P}]/gu, '')
+    .substring(0, 500)
     .trim();
 
   try {
@@ -189,23 +209,28 @@ export const connectLiveSession = async (callbacks: {
     onError?: (error: any) => void,
     onClose?: () => void
 }) => {
-    const ai = getAI();
-    return ai.live.connect({
-        model: 'gemini-2.5-flash-native-audio-preview-12-2025',
-        callbacks: {
-            onopen: callbacks.onOpen || (() => {}),
-            onmessage: callbacks.onMessage || (() => {}),
-            onerror: callbacks.onError || (() => {}),
-            onclose: callbacks.onClose || (() => {}),
-        },
-        config: {
-            responseModalities: [Modality.AUDIO],
-            speechConfig: {
-                voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } },
-            },
-            systemInstruction: "Bạn tên là Huy Long, gia sư AI đang trò chuyện trực tiếp. Hãy trả lời ngắn gọn, tự nhiên.",
-        },
-    });
+    try {
+      const ai = getAI();
+      return ai.live.connect({
+          model: 'gemini-2.5-flash-native-audio-preview-12-2025',
+          callbacks: {
+              onopen: callbacks.onOpen || (() => {}),
+              onmessage: callbacks.onMessage || (() => {}),
+              onerror: callbacks.onError || (() => {}),
+              onclose: callbacks.onClose || (() => {}),
+          },
+          config: {
+              responseModalities: [Modality.AUDIO],
+              speechConfig: {
+                  voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } },
+              },
+              systemInstruction: "Bạn tên là Huy Long, gia sư AI đang trò chuyện trực tiếp. Hãy trả lời ngắn gọn, tự nhiên.",
+          },
+      });
+    } catch (e) {
+      console.error("Live Session connection failed", e);
+      throw e;
+    }
 };
 
 export const createPcmBlob = (data: Float32Array) => {
