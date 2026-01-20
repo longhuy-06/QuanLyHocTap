@@ -1,65 +1,49 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pomodoro } from './Pomodoro';
-import { ResponsiveContainer, Cell, PieChart, Pie, BarChart, Bar, Tooltip, XAxis } from 'recharts';
+import { ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 import { useAuthStore } from '../lib/store/authStore';
 import { useDataStore } from '../lib/store/dataStore';
-import { TaskStatus } from '../types';
+import { TaskStatus, Task } from '../types';
 import { useNavigate } from 'react-router-dom';
 
 export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const { user, checkStreakValidity } = useAuthStore();
-  const { tasks, subjects, updateTaskStatus } = useDataStore();
+  const { tasks, subjects, updateTaskStatus, deleteTask } = useDataStore();
   
   const [activePerformanceDate, setActivePerformanceDate] = useState(new Date());
 
+  // Kiểm tra chuỗi ngay khi vào Dashboard
   useEffect(() => {
-      checkStreakValidity(tasks);
+      if (tasks.length > 0) {
+          checkStreakValidity(tasks);
+      }
   }, [checkStreakValidity, tasks]);
 
+  const getFormattedDate = (date: Date) => {
+      return `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`;
+  };
+
+  const getLocalDateKey = (date: Date) => {
+      const year = date.getFullYear();
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const day = date.getDate().toString().padStart(2, '0');
+      return `${year}-${month}-${day}`;
+  };
+
   const stats = useMemo(() => {
-      const selectedDay = activePerformanceDate.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
-      const dailyTasks = tasks.filter(t => t.due_date?.startsWith(selectedDay));
+      const selectedDayLabel = getFormattedDate(activePerformanceDate);
+      const dailyTasks = tasks.filter(t => t.due_date?.split(' ')[0] === selectedDayLabel);
       
       const totalTasks = dailyTasks.length;
       const completedTasks = dailyTasks.filter(t => t.status === TaskStatus.DONE).length;
       
-      const dateISO = activePerformanceDate.toISOString().split('T')[0];
-      const totalMinutes = user?.study_sessions?.[dateISO] || 0;
+      const dateKey = getLocalDateKey(activePerformanceDate);
+      const totalMinutes = user?.study_sessions?.[dateKey] || 0;
 
-      return { totalTasks, completedTasks, totalMinutes };
+      return { totalTasks, completedTasks, totalMinutes, dailyTasks };
   }, [tasks, activePerformanceDate, user]);
-
-  const todayTasks = useMemo(() => {
-      const today = new Date();
-      const todayStr = `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getFullYear()}`;
-      
-      return tasks.filter(t => {
-          if (!t.due_date) return false;
-          return t.due_date.startsWith(todayStr) && t.status !== TaskStatus.DONE;
-      }).sort((a, b) => {
-          const timeA = a.due_date.split(' ')[1] || '23:59';
-          const timeB = b.due_date.split(' ')[1] || '23:59';
-          return timeA.localeCompare(timeB);
-      });
-  }, [tasks]);
-
-  const intensityData = useMemo(() => {
-      const data = [];
-      const today = new Date();
-      for (let i = 6; i >= 0; i--) {
-          const d = new Date(today);
-          d.setDate(today.getDate() - i);
-          const dateStr = d.toISOString().split('T')[0];
-          const minutes = user?.study_sessions?.[dateStr] || 0;
-          data.push({
-              name: d.toLocaleDateString('vi-VN', { weekday: 'short' }),
-              minutes: minutes
-          });
-      }
-      return data;
-  }, [user]);
 
   const pieData = [
     { name: 'Xong', value: stats.completedTasks || (stats.totalTasks === 0 ? 0 : 0.0001), color: '#5048e5' },
@@ -71,6 +55,8 @@ export const Dashboard: React.FC = () => {
       newDate.setDate(newDate.getDate() + days);
       setActivePerformanceDate(newDate);
   };
+
+  const isFuture = activePerformanceDate.getTime() > new Date().setHours(23, 59, 59, 999);
 
   return (
     <div className="pb-32 pt-6 px-5 max-w-lg mx-auto bg-background-light dark:bg-background-dark min-h-screen">
@@ -94,36 +80,18 @@ export const Dashboard: React.FC = () => {
 
        <Pomodoro />
 
-       <div className="grid grid-cols-2 gap-4 mt-6 animate-fade-in-up" style={{ animationDelay: '0.05s' }}>
-          <button onClick={() => navigate('/documents')} className="bg-white dark:bg-surface-dark p-4 rounded-3xl shadow-soft flex items-center gap-3 active:scale-95 transition-all">
-             <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-primary dark:bg-indigo-900/20 flex items-center justify-center">
-                <span className="material-symbols-outlined">folder_open</span>
-             </div>
-             <div className="text-left">
-                <p className="text-sm font-black text-gray-900 dark:text-white">Tài liệu</p>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Kho lưu trữ</p>
-             </div>
-          </button>
-          
-          <button onClick={() => navigate('/ai-tutor')} className="bg-white dark:bg-surface-dark p-4 rounded-3xl shadow-soft flex items-center gap-3 active:scale-95 transition-all">
-             <div className="w-10 h-10 rounded-2xl bg-purple-50 text-purple-600 dark:bg-purple-900/20 flex items-center justify-center">
-                <span className="material-symbols-outlined">auto_awesome</span>
-             </div>
-             <div className="text-left">
-                <p className="text-sm font-black text-gray-900 dark:text-white">Huy Long</p>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Hỏi đáp 24/7</p>
-             </div>
-          </button>
-       </div>
-
-       <div className="mt-8 space-y-6">
+       <div className="mt-8 space-y-8">
           <section className="bg-white dark:bg-surface-dark rounded-[32px] p-6 shadow-soft animate-fade-in-up">
              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-base font-black text-gray-900 dark:text-white">Hiệu suất học tập</h3>
+                <div>
+                   <h3 className="text-base font-black text-gray-900 dark:text-white">
+                      {isFuture ? "Dự báo ngày" : "Hiệu suất ngày"} {activePerformanceDate.getDate()}/{activePerformanceDate.getMonth()+1}
+                   </h3>
+                </div>
                 <div className="flex items-center bg-gray-50 dark:bg-gray-800 rounded-xl p-1">
-                    <button onClick={() => handleDayShift(-1)} className="p-1.5 text-gray-400"><span className="material-symbols-outlined text-[18px]">chevron_left</span></button>
-                    <span className="text-[10px] font-black px-2 w-24 text-center">{activePerformanceDate.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}</span>
-                    <button onClick={() => handleDayShift(1)} className="p-1.5 text-gray-400"><span className="material-symbols-outlined text-[18px]">chevron_right</span></button>
+                    <button type="button" onClick={() => handleDayShift(-1)} className="p-1.5 text-gray-400 active:scale-90 transition-transform"><span className="material-symbols-outlined text-[18px]">chevron_left</span></button>
+                    <span className="text-[10px] font-black px-2 w-20 text-center">{activePerformanceDate.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}</span>
+                    <button type="button" onClick={() => handleDayShift(1)} className="p-1.5 text-gray-400 active:scale-90 transition-transform"><span className="material-symbols-outlined text-[18px]">chevron_right</span></button>
                 </div>
              </div>
 
@@ -138,55 +106,47 @@ export const Dashboard: React.FC = () => {
                     </ResponsiveContainer>
                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                         <span className="text-2xl font-black">{stats.totalTasks > 0 ? Math.round((stats.completedTasks/stats.totalTasks)*100) : 0}%</span>
-                        <span className="text-[8px] font-black text-gray-400">TIẾN ĐỘ</span>
+                        <span className="text-[8px] font-black text-gray-400 uppercase">{isFuture ? 'MỤC TIÊU' : 'TIẾN ĐỘ'}</span>
                     </div>
                 </div>
-                <div className="flex-1 grid grid-cols-1 gap-3">
+                <div className="flex-1 space-y-3">
                     <div className="flex items-center gap-3 p-3 bg-indigo-50/40 dark:bg-indigo-900/10 rounded-2xl">
                         <span className="material-symbols-outlined text-primary text-[20px]">assignment_turned_in</span>
                         <div>
-                            <p className="text-[9px] font-bold text-gray-400 uppercase">Bài tập</p>
+                            <p className="text-[9px] font-bold text-gray-400 uppercase">Nhiệm vụ</p>
                             <p className="text-base font-black">{stats.completedTasks}/{stats.totalTasks}</p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-3 p-3 bg-emerald-50/40 dark:bg-emerald-900/10 rounded-2xl">
-                        <span className="material-symbols-outlined text-emerald-500 text-[20px]">schedule</span>
-                        <div>
-                            <p className="text-[9px] font-bold text-gray-400 uppercase">Thời gian học</p>
-                            <p className="text-base font-black">{Math.floor(stats.totalMinutes/60)}h{stats.totalMinutes%60}m</p>
+                    {!isFuture && (
+                        <div className="flex items-center gap-3 p-3 bg-emerald-50/40 dark:bg-emerald-900/10 rounded-2xl">
+                            <span className="material-symbols-outlined text-emerald-500 text-[20px]">schedule</span>
+                            <div>
+                                <p className="text-[9px] font-bold text-gray-400 uppercase">Thời gian học</p>
+                                <p className="text-base font-black">{Math.floor(stats.totalMinutes/60)}h{stats.totalMinutes%60}m</p>
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </div>
              </div>
           </section>
 
           <section className="space-y-4">
-              <div className="flex items-center justify-between px-2">
-                  <h3 className="text-base font-black text-gray-900 dark:text-white">Nhiệm vụ hôm nay</h3>
-              </div>
+              <h3 className="text-base font-black text-gray-900 dark:text-white px-2">Danh sách nhiệm vụ</h3>
               <div className="space-y-3">
-                  {todayTasks.length > 0 ? (
-                      todayTasks.map(task => (
-                          <div key={task.id} className="bg-white dark:bg-surface-dark p-4 rounded-3xl shadow-soft flex items-center justify-between group">
-                              <div className="flex items-center gap-4">
-                                  <div className="w-1.5 h-10 rounded-full" style={{backgroundColor: subjects.find(s => s.id === task.subject_id)?.color || '#9ca3af'}}></div>
-                                  <div>
-                                      <h4 className="text-[15px] font-black line-clamp-1">{task.title}</h4>
-                                      <div className="flex items-center gap-2 mt-0.5">
-                                          <p className="text-[10px] font-bold text-gray-400 uppercase">{subjects.find(s => s.id === task.subject_id)?.name || 'Khác'}</p>
-                                          <div className="w-1 h-1 rounded-full bg-gray-300"></div>
-                                          <span className="text-[10px] font-bold text-primary">{task.due_date.split(' ')[1] || 'Cả ngày'}</span>
-                                      </div>
-                                  </div>
-                              </div>
-                              <button onClick={() => updateTaskStatus(task.id, TaskStatus.DONE)} className="w-10 h-10 rounded-full border border-gray-100 dark:border-gray-700 flex items-center justify-center text-gray-300 hover:text-emerald-500 transition-all">
-                                <span className="material-symbols-outlined text-[22px]">check_circle</span>
-                              </button>
-                          </div>
+                  {stats.dailyTasks.length > 0 ? (
+                      stats.dailyTasks.map(task => (
+                          <TaskRow 
+                            key={task.id} 
+                            task={task} 
+                            subjects={subjects} 
+                            onComplete={() => updateTaskStatus(task.id, task.status === TaskStatus.DONE ? TaskStatus.TODO : TaskStatus.DONE)} 
+                            onDelete={() => { if(confirm("Xóa nhiệm vụ này?")) deleteTask(task.id); }}
+                            onEdit={() => navigate(`/kanban`)}
+                          />
                       ))
                   ) : (
-                      <div className="p-10 text-center bg-gray-50/50 dark:bg-gray-800/30 rounded-[32px] border border-dashed border-gray-200 dark:border-gray-700">
-                          <p className="text-sm text-gray-400 font-bold">Thật tuyệt! Bạn đã xong hết bài tập hôm nay.</p>
+                      <div className="p-8 text-center bg-gray-50/30 dark:bg-gray-800/10 rounded-[28px] border border-dashed border-gray-100 dark:border-gray-800/30">
+                          <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">Trống lịch cho ngày này</p>
                       </div>
                   )}
               </div>
@@ -195,3 +155,40 @@ export const Dashboard: React.FC = () => {
     </div>
   );
 };
+
+const TaskRow: React.FC<{ task: any, subjects: any[], onComplete: () => void, onDelete: () => void, onEdit: () => void }> = ({ task, subjects, onComplete, onDelete, onEdit }) => (
+    <div 
+        className={`bg-white dark:bg-surface-dark p-4 rounded-3xl shadow-soft flex items-center justify-between group border border-transparent transition-all hover:border-primary/20 ${task.status === TaskStatus.DONE ? 'opacity-60' : ''}`}
+        onClick={onEdit}
+    >
+        <div className="flex items-center gap-4 flex-1">
+            <div className="w-1.5 h-10 rounded-full" style={{backgroundColor: subjects.find(s => s.id === task.subject_id)?.color || '#9ca3af'}}></div>
+            <div className="flex-1 min-w-0">
+                <h4 className={`text-[15px] font-black truncate ${task.status === TaskStatus.DONE ? 'line-through text-gray-400' : 'text-gray-900 dark:text-white'}`}>
+                    {task.title}
+                </h4>
+                <div className="flex items-center gap-2 mt-0.5">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase">{subjects.find(s => s.id === task.subject_id)?.name || 'Khác'}</p>
+                    <div className="w-1 h-1 rounded-full bg-gray-300"></div>
+                    <span className="text-[10px] font-bold text-primary">{task.due_date.split(' ')[1] || 'Cả ngày'}</span>
+                </div>
+            </div>
+        </div>
+        <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+            <button 
+                type="button"
+                onClick={onDelete}
+                className="w-10 h-10 rounded-full flex items-center justify-center text-gray-300 hover:text-red-500 transition-all opacity-0 group-hover:opacity-100"
+            >
+                <span className="material-symbols-outlined text-[20px]">delete</span>
+            </button>
+            <button 
+                type="button"
+                onClick={onComplete} 
+                className={`w-10 h-10 rounded-full border flex items-center justify-center transition-all active:scale-90 ${task.status === TaskStatus.DONE ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-gray-100 dark:border-gray-700 text-gray-300 hover:text-emerald-500 hover:border-emerald-500'}`}
+            >
+                <span className="material-symbols-outlined text-[22px]">{task.status === TaskStatus.DONE ? 'check' : 'check_circle'}</span>
+            </button>
+        </div>
+    </div>
+);

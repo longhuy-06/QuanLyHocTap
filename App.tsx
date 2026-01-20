@@ -1,5 +1,4 @@
 
-// Fix: Added missing React import to resolve namespace errors for React.FC and React.ReactNode
 import React, { useEffect } from 'react';
 import { HashRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { Dashboard } from './components/Dashboard';
@@ -22,12 +21,23 @@ import { LoginStreakWelcome } from './components/LoginStreakWelcome';
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
   const hideNav = ['/', '/login', '/register', '/forgot-password', '/subjects'].includes(location.pathname);
+  const { isSyncing } = useDataStore();
 
   return (
     <div className="min-h-screen font-sans antialiased text-gray-900 dark:text-gray-100 bg-background-light dark:bg-background-dark">
       <ConnectivityStatus />
       <StreakSuccessModal />
       <LoginStreakWelcome />
+      
+      {isSyncing && (
+          <div className="fixed inset-0 z-[1000] bg-black/20 backdrop-blur-[2px] flex flex-col items-center justify-center">
+              <div className="bg-white dark:bg-surface-dark p-6 rounded-3xl shadow-2xl flex flex-col items-center gap-4 border border-white/20">
+                  <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                  <p className="text-xs font-black uppercase tracking-widest text-primary">Đang đồng bộ dữ liệu...</p>
+              </div>
+          </div>
+      )}
+
       <main className="h-full min-h-screen relative">
         {children}
       </main>
@@ -73,7 +83,7 @@ const App: React.FC = () => {
       if (isAuthenticated && user) {
           fetchUserData(user.id);
       }
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user, fetchUserData]);
 
   return (
     <HashRouter>

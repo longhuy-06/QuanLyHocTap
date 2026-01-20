@@ -17,7 +17,6 @@ export const CalendarPicker: React.FC<CalendarPickerProps> = ({ initialDate, onS
   // Parse initial date
   useEffect(() => {
     if (initialDate) {
-        // Format: "DD/MM/YYYY HH:mm"
         const [datePart, timePart] = initialDate.split(' ');
         
         if (datePart) {
@@ -49,7 +48,8 @@ export const CalendarPicker: React.FC<CalendarPickerProps> = ({ initialDate, onS
     return day === 0 ? 6 : day - 1;
   };
 
-  const handlePrev = () => {
+  const handlePrev = (e: React.MouseEvent) => {
+    e.preventDefault();
     if (viewMode === 'month') {
         setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
     } else {
@@ -57,7 +57,8 @@ export const CalendarPicker: React.FC<CalendarPickerProps> = ({ initialDate, onS
     }
   };
 
-  const handleNext = () => {
+  const handleNext = (e: React.MouseEvent) => {
+    e.preventDefault();
     if (viewMode === 'month') {
         setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
     } else {
@@ -76,7 +77,8 @@ export const CalendarPicker: React.FC<CalendarPickerProps> = ({ initialDate, onS
       setViewMode('month');
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = (e: React.MouseEvent) => {
+      e.preventDefault();
       const dayStr = selectedDate.getDate().toString().padStart(2, '0');
       const monthStr = (selectedDate.getMonth() + 1).toString().padStart(2, '0');
       const yearStr = selectedDate.getFullYear().toString();
@@ -109,6 +111,7 @@ export const CalendarPicker: React.FC<CalendarPickerProps> = ({ initialDate, onS
       days.push(
         <button
           key={day}
+          type="button"
           onClick={() => handleDateClick(day)}
           className={`
             h-10 w-full flex flex-col items-center justify-center rounded-full text-sm font-medium transition-all relative
@@ -128,139 +131,66 @@ export const CalendarPicker: React.FC<CalendarPickerProps> = ({ initialDate, onS
     return days;
   };
 
-  const renderYears = () => {
-      const currentYear = currentDate.getFullYear();
-      const startYear = currentYear - 5;
-      const endYear = currentYear + 6;
-      const years = [];
-
-      for (let y = startYear; y <= endYear; y++) {
-          const isSelected = selectedDate.getFullYear() === y;
-          const isCurrentYear = new Date().getFullYear() === y;
-
-          years.push(
-              <button
-                key={y}
-                onClick={() => handleYearClick(y)}
-                className={`
-                    h-12 w-full rounded-xl text-sm font-medium transition-all relative
-                    ${isSelected 
-                        ? 'bg-primary text-white shadow-lg shadow-primary/30 font-bold' 
-                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                    }
-                `}
-              >
-                  {y}
-                  {!isSelected && isCurrentYear && (
-                      <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 w-1 h-1 rounded-full bg-primary"></div>
-                  )}
-              </button>
-          );
-      }
-      return <div className="grid grid-cols-4 gap-3">{years}</div>;
-  };
-
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in-up p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in-up p-4" onClick={onClose}>
       <div 
-        className="w-full max-w-sm bg-white dark:bg-surface-dark rounded-[32px] p-6 shadow-2xl border border-gray-100 dark:border-gray-700"
+        className="w-full max-w-sm bg-white dark:bg-surface-dark rounded-[40px] p-6 shadow-2xl border border-white/10"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex bg-gray-50 dark:bg-gray-800 p-1 rounded-2xl mb-6">
-          <button 
-            onClick={() => setViewMode('month')}
-            className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${viewMode === 'month' ? 'bg-white dark:bg-surface-dark text-primary shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}
-          >
-            Tháng
-          </button>
-          <button 
-            onClick={() => setViewMode('year')}
-            className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${viewMode === 'year' ? 'bg-white dark:bg-surface-dark text-primary shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}
-          >
-            Năm
-          </button>
+        <div className="flex bg-gray-50 dark:bg-gray-800 p-1.5 rounded-2xl mb-6">
+          <button type="button" onClick={() => setViewMode('month')} className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${viewMode === 'month' ? 'bg-white dark:bg-surface-dark text-primary shadow-sm' : 'text-gray-400'}`}>Tháng</button>
+          <button type="button" onClick={() => setViewMode('year')} className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${viewMode === 'year' ? 'bg-white dark:bg-surface-dark text-primary shadow-sm' : 'text-gray-400'}`}>Năm</button>
         </div>
 
         <div className="flex items-center justify-between mb-6 px-2">
-          <button onClick={handlePrev} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600">
-            <span className="material-symbols-outlined">chevron_left</span>
-          </button>
-          <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-            {viewMode === 'month' 
-                ? `Tháng ${currentDate.getMonth() + 1}, ${currentDate.getFullYear()}` 
-                : `${currentDate.getFullYear() - 5} - ${currentDate.getFullYear() + 6}`
-            }
+          <button type="button" onClick={handlePrev} className="p-2 text-gray-400"><span className="material-symbols-outlined">chevron_left</span></button>
+          <h2 className="text-lg font-black text-gray-900 dark:text-white">
+            {viewMode === 'month' ? `Tháng ${currentDate.getMonth() + 1}, ${currentDate.getFullYear()}` : `${currentDate.getFullYear() - 5} - ${currentDate.getFullYear() + 6}`}
           </h2>
-          <button onClick={handleNext} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600">
-             <span className="material-symbols-outlined">chevron_right</span>
-          </button>
+          <button type="button" onClick={handleNext} className="p-2 text-gray-400"><span className="material-symbols-outlined">chevron_right</span></button>
         </div>
 
         {viewMode === 'month' ? (
              <div className="grid grid-cols-7 gap-y-2 mb-4">
-                {['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map((day) => (
-                    <div key={day} className="text-center text-xs font-semibold text-gray-400 mb-2">
-                    {day}
-                    </div>
-                ))}
+                {['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map((day) => <div key={day} className="text-center text-[10px] font-black text-gray-400 uppercase">{day}</div>)}
                 {renderDays()}
             </div>
         ) : (
-            <div className="mb-4">
-                {renderYears()}
+            <div className="mb-4 grid grid-cols-4 gap-3">
+                {Array.from({length: 12}, (_, i) => currentDate.getFullYear() - 5 + i).map(y => (
+                    <button key={y} type="button" onClick={() => handleYearClick(y)} className={`h-12 rounded-xl text-sm font-bold ${selectedDate.getFullYear() === y ? 'bg-primary text-white shadow-lg' : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500'}`}>{y}</button>
+                ))}
             </div>
         )}
 
-        {/* Time Picker Section */}
-        <div className="flex items-center justify-center gap-4 py-4 border-t border-gray-100 dark:border-gray-800">
-            <div className="flex flex-col items-center gap-1">
-                <span className="text-xs font-medium text-gray-400">Giờ</span>
-                <div className="relative">
-                    <select 
-                        value={selectedHour}
-                        onChange={(e) => setSelectedHour(Number(e.target.value))}
-                        className="appearance-none bg-gray-50 dark:bg-gray-800 border-none rounded-xl py-2 pl-4 pr-8 font-bold text-gray-900 dark:text-white text-lg focus:ring-2 focus:ring-primary outline-none cursor-pointer"
-                    >
-                        {Array.from({length: 24}, (_, i) => (
-                            <option key={i} value={i}>{i.toString().padStart(2, '0')}</option>
-                        ))}
-                    </select>
-                    <span className="material-symbols-outlined absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 text-sm">expand_more</span>
-                </div>
-            </div>
-            <span className="text-xl font-bold text-gray-300 mt-5">:</span>
-            <div className="flex flex-col items-center gap-1">
-                <span className="text-xs font-medium text-gray-400">Phút</span>
-                <div className="relative">
-                    <select 
-                        value={selectedMinute}
-                        onChange={(e) => setSelectedMinute(Number(e.target.value))}
-                        className="appearance-none bg-gray-50 dark:bg-gray-800 border-none rounded-xl py-2 pl-4 pr-8 font-bold text-gray-900 dark:text-white text-lg focus:ring-2 focus:ring-primary outline-none cursor-pointer"
-                    >
-                        {Array.from({length: 12}, (_, i) => i * 5).map((m) => (
-                            <option key={m} value={m}>{m.toString().padStart(2, '0')}</option>
-                        ))}
-                    </select>
-                    <span className="material-symbols-outlined absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 text-sm">expand_more</span>
-                </div>
-            </div>
+        <div className="flex items-center justify-center gap-6 py-6 border-t border-gray-100 dark:border-gray-800 mt-4">
+            <TimeSelect value={selectedHour} onChange={setSelectedHour} max={23} label="Giờ" />
+            <span className="text-2xl font-black text-gray-200 mt-4">:</span>
+            <TimeSelect value={selectedMinute} onChange={setSelectedMinute} max={55} step={5} label="Phút" />
         </div>
         
-        <div className="flex gap-3 mt-4">
-            <button 
-                onClick={onClose}
-                className="flex-1 py-3 rounded-xl text-sm font-semibold text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-            >
-                Hủy
-            </button>
-            <button 
-                onClick={handleConfirm}
-                className="flex-1 py-3 rounded-xl text-sm font-bold text-white bg-primary hover:bg-primary-dark shadow-lg shadow-primary/30 transition-colors"
-            >
-                Lưu
-            </button>
+        <div className="flex gap-4 mt-6">
+            <button type="button" onClick={onClose} className="flex-1 py-4 rounded-2xl font-black text-gray-400 bg-gray-50 dark:bg-gray-800 uppercase text-[10px] tracking-widest">Hủy bỏ</button>
+            <button type="button" onClick={handleConfirm} className="flex-1 py-4 rounded-2xl font-black text-white bg-primary shadow-xl shadow-primary/30 uppercase text-[10px] tracking-widest">Áp dụng</button>
         </div>
       </div>
     </div>
   );
 };
+
+const TimeSelect: React.FC<{ value: number, onChange: (v: number) => void, max: number, step?: number, label: string }> = ({ value, onChange, max, step = 1, label }) => (
+    <div className="flex flex-col items-center gap-1.5">
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{label}</span>
+        <div className="relative">
+            <select 
+                value={value}
+                onChange={(e) => onChange(Number(e.target.value))}
+                className="appearance-none bg-gray-50 dark:bg-gray-800 border-none rounded-2xl py-2 px-6 font-black text-gray-900 dark:text-white text-xl focus:ring-2 focus:ring-primary outline-none cursor-pointer"
+            >
+                {Array.from({length: (max / step) + 1}, (_, i) => i * step).map((v) => (
+                    <option key={v} value={v}>{v.toString().padStart(2, '0')}</option>
+                ))}
+            </select>
+        </div>
+    </div>
+);
