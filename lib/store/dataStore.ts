@@ -87,7 +87,6 @@ export const useDataStore = create<DataState>((set, get) => ({
     const isDone = status === TaskStatus.DONE;
     const isTodo = status === TaskStatus.TODO;
     
-    // Tự động gán progress dựa trên trạng thái
     let progress = get().tasks.find(t => t.id === taskId)?.progress || 0;
     if (isDone) progress = 100;
     else if (isTodo) progress = 0;
@@ -129,7 +128,7 @@ export const useDataStore = create<DataState>((set, get) => ({
     const { error } = await supabase.from('tasks').delete().eq('id', taskId).eq('user_id', user.id);
     if (error) {
       set({ tasks: previousTasks });
-      alert("Không thể xóa nhiệm vụ. Vui lòng thử lại!");
+      alert("Lỗi xóa nhiệm vụ!");
     }
   },
 

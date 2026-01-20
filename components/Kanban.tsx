@@ -113,9 +113,10 @@ export const Kanban: React.FC = () => {
       {isTaskModalOpen && <TaskModal task={editingTask} onClose={() => setIsTaskModalOpen(false)} defaultSubject={activeSubject !== 'all' ? activeSubject : undefined} />}
       {isAddSubjectModalOpen && <AddSubjectModal onClose={() => setIsAddSubjectModalOpen(false)} />}
       
+      {/* Modal xóa TẤT CẢ */}
       {isResetConfirmOpen && (
           <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-md px-4">
-              <div className="bg-white dark:bg-surface-dark w-full max-sm p-8 rounded-[40px] text-center shadow-2xl border border-white/20 animate-fade-in-up">
+              <div className="bg-white dark:bg-surface-dark w-full max-w-xs p-8 rounded-[40px] text-center shadow-2xl border border-white/20 animate-fade-in-up">
                   <div className="w-20 h-20 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
                       <span className="material-symbols-outlined text-[40px] fill-1">delete_forever</span>
                   </div>
@@ -129,9 +130,10 @@ export const Kanban: React.FC = () => {
           </div>
       )}
 
+      {/* Modal xóa TỪNG CÁI (Thiết kế theo ảnh mẫu) */}
       {taskToDelete && (
           <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-md px-4">
-              <div className="bg-white dark:bg-surface-dark w-full max-sm p-8 rounded-[40px] text-center shadow-2xl border border-white/20 animate-fade-in-up">
+              <div className="bg-white dark:bg-surface-dark w-full max-w-xs p-8 rounded-[40px] text-center shadow-2xl border border-white/20 animate-fade-in-up">
                   <div className="w-20 h-20 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
                       <span className="material-symbols-outlined text-[40px] fill-1">delete_forever</span>
                   </div>
@@ -204,7 +206,6 @@ const Card: React.FC<any> = ({ task, subjectInfo, currentTime, showProgress, isD
         onProgressChange(task.id, val);
     };
 
-    // Tiến độ hiển thị thực tế
     const displayProgress = task.status === TaskStatus.DONE ? 100 : (task.status === TaskStatus.TODO ? 0 : task.progress);
 
     return (

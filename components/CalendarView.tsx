@@ -184,22 +184,22 @@ export const CalendarView: React.FC = () => {
                 
                 if (stats) {
                     const ratio = stats.done / stats.total;
-                    if (ratio === 0) bg = 'bg-red-500 text-white shadow-md';
-                    else if (ratio < 0.5) bg = 'bg-orange-500 text-white shadow-md';
-                    else if (ratio < 1) bg = 'bg-amber-400 text-white shadow-md';
-                    else bg = 'bg-emerald-500 text-white shadow-md';
+                    if (ratio === 0) bg = 'bg-red-500 text-white shadow-md ring-2 ring-red-200 dark:ring-red-900/50';
+                    else if (ratio < 0.5) bg = 'bg-orange-500 text-white shadow-md ring-2 ring-orange-200 dark:ring-orange-900/50';
+                    else if (ratio < 1) bg = 'bg-amber-400 text-white shadow-md ring-2 ring-amber-200 dark:ring-amber-900/50';
+                    else bg = 'bg-emerald-500 text-white shadow-md ring-2 ring-emerald-200 dark:ring-emerald-900/50';
                 }
 
                 return (
                     <div key={d} onClick={() => setSelectedDate(curr)} className="flex flex-col items-center cursor-pointer relative">
-                        <span className={`flex items-center justify-center w-10 h-10 text-sm font-black rounded-2xl transition-all ${bg} ${isSel ? 'ring-4 ring-primary/20 scale-110 shadow-xl' : ''} ${isToday && !stats ? 'border-2 border-primary' : ''}`}>{d}</span>
+                        <span className={`flex items-center justify-center w-10 h-10 text-sm font-black rounded-2xl transition-all ${bg} ${isSel ? 'ring-4 ring-primary/20 scale-110 shadow-xl z-10' : ''} ${isToday && !stats ? 'border-2 border-primary' : ''}`}>{d}</span>
                     </div>
                 );
               })}
           </div>
           
-          <div className="mt-8 flex justify-center items-center gap-4 border-t border-gray-100 dark:border-gray-800 pt-4">
-              <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-red-500"></div><span className="text-[9px] font-bold text-gray-400 uppercase">0%</span></div>
+          <div className="mt-8 flex justify-center items-center gap-4 border-t border-gray-100 dark:border-gray-800 pt-4 flex-wrap">
+              <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-red-500"></div><span className="text-[9px] font-bold text-gray-400 uppercase">Chưa làm</span></div>
               <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-orange-500"></div><span className="text-[9px] font-bold text-gray-400 uppercase">&lt;50%</span></div>
               <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-amber-400"></div><span className="text-[9px] font-bold text-gray-400 uppercase">50-99%</span></div>
               <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div><span className="text-[9px] font-bold text-gray-400 uppercase">100%</span></div>
@@ -225,7 +225,7 @@ export const CalendarView: React.FC = () => {
                     </div>
                     <div className="flex items-center gap-2">
                         <button 
-                            onClick={(e) => { e.stopPropagation(); handleDeleteTask(task.id); }}
+                            onClick={(e) => { e.stopPropagation(); if(confirm("Xóa nhiệm vụ này?")) deleteTask(task.id); }}
                             className="p-2 text-gray-300 hover:text-red-500 transition-colors"
                         >
                             <span className="material-symbols-outlined text-[20px]">delete</span>
