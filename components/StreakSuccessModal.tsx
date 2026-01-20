@@ -1,4 +1,5 @@
-import { useMemo, useEffect, useState } from 'react';
+// Import React to fix namespace error
+import React, { useMemo, useEffect, useState } from 'react';
 import { useDataStore } from '../lib/store/dataStore';
 import { useAuthStore } from '../lib/store/authStore';
 import { TaskStatus } from '../types';
